@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>(주)삼인 생산실적관리</title>
+<style>
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   기본 리셋 & 전역
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --blue:#1a4b8c;
+  --blue-dark:#0f2f5a;
+  --blue-mid:#2a5fa3;
+  --blue-light:#e8f0fb;
+  --teal:#0f6e56;
+  --red:#a32d2d;
+  --red-light:#fcebeb;
+  --warn:#ba7517;
+  --warn-light:#fff3e0;
+  --gray:#6b7a99;
+  --border:#cdd5e4;
+  --bg:#e8eaed;
+  --card:#f5f7fc;
+  --white:#ffffff;
+}
+body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:center;min-height:100vh;padding:12px 0;font-family:'Apple SD Gothic Neo','Noto Sans KR',sans-serif;}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   폰 프레임
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.phone{
+  width:360px;min-height:700px;
+  border:2px solid #b0b8c8;border-radius:36px;
+  overflow:hidden;background:var(--bg);
+  display:flex;flex-direction:column;
+  box-shadow:0 8px 32px rgba(0,0,0,0.18);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   헤더
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.hdr{background:var(--blue);padding:14px 14px 0;}
+.hdr-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.hdr-logo{width:34px;height:34px;border-radius:8px;overflow:hidden;background:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.hdr-logo img{width:100%;height:100%;object-fit:contain;}
+.hdr-title{font-size:15px;font-weight:700;color:white;line-height:1.2;}
+.hdr-sub{font-size:10px;color:rgba(255,255,255,0.75);margin-top:2px;font-style:italic;}
+.hdr-user{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.hdr-user-name{font-size:11px;font-weight:600;color:white;}
+.hdr-logout{font-size:9px;color:rgba(255,255,255,0.6);cursor:pointer;text-decoration:underline;}
+.tab-row{display:flex;gap:3px;padding-bottom:0;}
+.tab{flex:1;padding:9px 4px;border:none;border-radius:8px 8px 0 0;font-size:12px;font-weight:600;cursor:pointer;text-align:center;background:rgba(0,0,0,0.28);color:#fff;transition:background .18s,color .18s;}
+.tab.on{background:#fff!important;color:var(--blue)!important;}
+.stat-card-head{font-size:11px;font-weight:600;margin-bottom:10px;}
+.st-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid rgba(0,0,0,0.06);}
+.st-row:last-child{border-bottom:none;}
+.st-rank{font-size:10px;font-weight:700;color:#fff;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.st-name{font-size:11px;color:#333;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-bar-wrap{width:100px;height:8px;background:rgba(0,0,0,0.07);border-radius:4px;overflow:hidden;flex-shrink:0;}
+.st-bar{height:100%;border-radius:4px;transition:width .5s ease;}
+.st-val{font-size:11px;font-weight:600;min-width:44px;text-align:right;flex-shrink:0;}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   바디 / 섹션
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.body{flex:1;overflow-y:auto;padding:12px 10px;background:var(--bg);}
+.sec-label{font-size:10px;font-weight:600;color:var(--blue);letter-spacing:.05em;text-transform:uppercase;margin-bottom:4px;}
+.card{background:var(--card);border-radius:12px;border:.5px solid var(--border);padding:10px 12px;display:flex;flex-direction:column;gap:7px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.field{display:flex;flex-direction:column;gap:3px;}
+.lbl{font-size:10px;color:var(--gray);}
+.inp,.sel{background:white;border:.5px solid #c0cde0;border-radius:7px;padding:7px 9px;font-size:11px;color:#1a3560;width:100%;}
+.sel{appearance:auto;}
+.sel:disabled{background:#f0f2f7;color:#1a3560;opacity:1;border-color:#c0cde0;font-weight:600;}
+.sel-row{display:flex;gap:4px;}
+.sel-btn{flex:1;padding:5px 4px;border:.5px solid #c0cde0;border-radius:7px;background:white;font-size:10px;color:var(--gray);cursor:pointer;text-align:center;transition:background .15s,color .15s;}
+.sel-btn.on{background:var(--blue);border-color:var(--blue);color:white;font-weight:600;}
+.calc-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;}
+.calc-card{background:var(--blue-light);border-radius:9px;padding:7px;text-align:center;}
+.calc-num{font-size:16px;font-weight:600;color:var(--blue);}
+.calc-unit{font-size:9px;color:var(--blue);}
+.calc-lbl{font-size:9px;color:#5a7099;margin-top:1px;}
+.good{background:#e1f5ee;}.good .calc-num{color:var(--teal);}
+.bad{background:var(--red-light);}.bad .calc-num{color:var(--red);}
+.issue-area{background:white;border:.5px solid #c0cde0;border-radius:7px;padding:8px 9px;font-size:11px;color:#1a3560;min-height:58px;width:100%;resize:none;font-family:inherit;}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   버튼 바
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.btn-row{display:flex;gap:8px;padding:9px 10px;background:var(--bg);border-top:.5px solid var(--border);}
+.btn-main{flex:1;padding:10px;background:var(--blue);color:white;border:none;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;}
+.btn-main:active{background:var(--blue-dark);}
+.btn-del{flex:1;padding:10px;background:var(--red);color:white;border:none;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   현황 대시보드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.filter-bar{background:#f0f2f7;border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:6px;}
+.filter-row{display:grid;grid-template-columns:1fr 1fr;gap:5px;align-items:end;}
+.filter-lbl{font-size:10px;color:var(--gray);margin-bottom:2px;}
+.filter-sel{background:white;border:.5px solid #c0cde0;border-radius:7px;padding:5px 7px;font-size:10px;color:#1a3560;width:100%;}
+.rec-card{background:white;border:.5px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:7px;transition:box-shadow .15s,opacity .25s;}
+.rec-card.selected{border:.5px solid var(--blue);box-shadow:0 0 0 2px #b5d4f4;}
+.rec-head{background:var(--blue);padding:7px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
+.rec-check{width:16px;height:16px;min-width:16px;border-radius:4px;border:1.5px solid rgba(255,255,255,0.6);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s;flex-shrink:0;}
+.rec-check.checked{background:#5dd67c;border-color:#5dd67c;}
+.rec-check.checked::after{content:'✓';font-size:10px;color:white;font-weight:700;line-height:1;}
+.rec-machine{font-size:11px;font-weight:600;color:white;flex:1;}
+.rec-time{font-size:9px;color:rgba(255,255,255,0.7);}
+.rec-body{padding:9px 10px;}
+.rec-product{font-size:11px;font-weight:600;color:#1a3560;margin-bottom:5px;}
+.rec-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;}
+.rec-stat{text-align:center;}
+.rec-stat-num{font-size:13px;font-weight:600;}
+.rec-stat-lbl{font-size:9px;color:var(--gray);}
+.defect-ok{color:var(--teal);}
+.defect-warn{color:var(--warn);}
+.defect-bad{color:var(--red);}
+.issue-badge{display:inline-block;background:var(--warn-light);color:#854f0b;font-size:9px;padding:2px 7px;border-radius:20px;margin-top:4px;}
+.shift-badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:600;}
+.shift-day{background:#e6f0fb;color:var(--blue);}
+.shift-night{background:#0d3270;color:white;}
+.del-hint{font-size:10px;color:var(--red);text-align:center;padding:4px 0 0;display:none;}
+.del-hint.show{display:block;}
+.empty-msg{text-align:center;padding:28px 0;font-size:11px;color:var(--gray);}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   페이지 전환 (탭 전환)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.screen{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.screen.on{display:flex;}
+/* 탭 내 콘텐츠 페이지 */
+.page{display:none;flex-direction:column;gap:9px;}
+.page.on{display:flex;}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   로그인 화면
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.login-wrap{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:28px 24px;background:var(--bg);gap:0;
+}
+.login-logo-wrap{
+  width:72px;height:72px;border-radius:18px;overflow:hidden;background:white;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 16px rgba(26,75,140,0.2);margin-bottom:14px;
+}
+.login-logo-wrap img{width:100%;height:100%;object-fit:contain;}
+.login-company{font-size:17px;font-weight:700;color:var(--blue);margin-bottom:4px;}
+.login-subtitle{font-size:11px;color:var(--gray);margin-bottom:28px;font-style:italic;}
+.login-card{background:white;border-radius:16px;border:.5px solid var(--border);padding:20px 18px;width:100%;display:flex;flex-direction:column;gap:12px;box-shadow:0 2px 12px rgba(0,0,0,0.07);}
+.login-title{font-size:13px;font-weight:700;color:var(--blue);text-align:center;margin-bottom:4px;}
+.login-field{display:flex;flex-direction:column;gap:4px;}
+.login-lbl{font-size:10px;font-weight:600;color:var(--gray);}
+.login-inp{
+  background:#f7f9fc;border:.5px solid #c0cde0;border-radius:9px;
+  padding:10px 12px;font-size:13px;color:#1a3560;width:100%;
+  transition:border-color .15s,box-shadow .15s;
+}
+.login-inp:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,75,140,0.1);}
+.login-btn{
+  padding:12px;background:var(--blue);color:white;border:none;border-radius:10px;
+  font-size:13px;font-weight:700;cursor:pointer;margin-top:4px;transition:background .15s;
+}
+.login-btn:active{background:var(--blue-dark);}
+.login-err{font-size:10px;color:var(--red);text-align:center;min-height:14px;}
+.login-footer{font-size:9px;color:var(--gray);text-align:center;margin-top:16px;line-height:1.6;}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   토스트 알림
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:#1a3560;color:white;padding:9px 18px;border-radius:20px;
+  font-size:11px;font-weight:600;opacity:0;transition:all .3s;pointer-events:none;
+  white-space:nowrap;z-index:9999;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.err{background:var(--red);}
+.toast.ok{background:var(--teal);}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   로딩 스피너
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.loading-overlay{
+  position:fixed;inset:0;background:rgba(255,255,255,0.7);
+  display:none;align-items:center;justify-content:center;z-index:8888;
+}
+.loading-overlay.on{display:flex;}
+.spinner{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────────────────────
+     로딩 오버레이
+─────────────────────────────────────── -->
+<div class="loading-overlay" id="loading"><div class="spinner"></div></div>
+
+<!-- ───────────────────────────────────────
+     토스트
+─────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     폰 프레임
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="phone">
+
+  <!-- ══════════════════════════════════
+       로그인 화면
+  ══════════════════════════════════ -->
+  <div class="screen on" id="screen-login">
+    <div class="login-wrap">
+      <div class="login-logo-wrap">
+        <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAAqADADASIAAhEBAxEB/8QAGQABAQEBAQEAAAAAAAAAAAAABwgGBQME/8QANxAAAQMDAwEFBAgHAQAAAAAAAQIDBAUGEQAHEiEIExQxQSJRdbMVMjU2N3aBkTNTYWJjgqG0/8QAGwEAAQQDAAAAAAAAAAAAAAAAAAQFBgcBAgP/xAAmEQACAQMCBgIDAAAAAAAAAAABAgMABBEFIQYSFEFRcQfBIjFh/9oADAMBAAIRAxEAPwBt3At/fmdeNQlWffFEplBWW/BRXmmy42A0gL5FUVwklwLP1j0I8tZXZTdm6k7hS7A3BnRqlJ8dIhs1BptCOD7SlJ4HihCShXA8TxCgogHII40RqB75myKbu1cVShnEmHccuQwfc4iUtST+4GmzUJ2tuSQHvv6qccI6XFrnUWkiDIjJUgYPMCMHPfwf5VkbsU+/qlb8ZjbquQKNVEzErkPy0JUlUfgsFCctOAK5ls/V8geo0B3re2+W1tz0hq6brpFbbmsPPJjojtlpQQUJIWUsNLH8QEFKvNPUEdDU0CUzOgx5sZYWxIaS62oeSkqGQf2Opg7bP3wtL4dN+ZH12v2aOFpFOCKrfU2aK3eVCQQPvxTFSLtqW5O0kuq2FLYpFfcQWEeKwtMOSOJUlR4KChxIIPA5CkkpHUAouWqb9WJc1mC6L6pk+n1u44VMcaiR2FKKHHU8wcxUEAo5DIVkEjXH7HtwLgX/ADbfccxHqsQrQk/zmTyTj3ZQp3Pv4p92kPtU/a+1H56p3zBrFrP1MKyH9/da2Vx1dusxO/f3TfqANyfxKuv47P8A/S5ql90t4Lns29pNCatS2HYoDaocio3nDgOykqQklQZd9oAL5o6+fDProPuvbXciVXJdcrltwqK5W6u6WGHq3EIU8+6taGULLieaznAAGTg4Gkmso8sQVFJIPYHwatz41urexv5JbqRUUoQCWUb8y7bmqs2clCZtRar3MrUKTHbWo+qkNhCv+pOgbts/fC0vh035kfSLRaxd1k7aW1a9HtiDXbybbJkUJ2uR4rzUQKcBkgkqCkBQbT09V+mCNEW6bG5+69SYrCrDpkGPbqJcGYqHdEGWll7k0pxDp5oDakBHUHqM9caU3as9oVAOSBVX8QoHE8cX5ZJxjfO/asZsnP8Aozdy1pYUEk1FuPk/5ss4/UOEfrqge1T9r7UfnqnfMGgujWJuHbsqiXeLZiriMzYkuG69Xae1HlK7xC2kJd78jDhwAQDnkMA6TL4f3W3Bvix6RV9uKdQnKLXodcfS3c0SS/4Vt5KVud1lKuAyfaGeoAAydJtKjkihZHBG/j1TLokUsNu0cikHPj1W2dgzIN13vW7co9HvqjVuWiPXoCHkNVCM60w2ytgFY7t9HdgK7pam+JWrBVyxo0v+Va97QaBbVtM192hUKzPH0VUSmzJy2Kg8A3A77uW3FIU2lh05Xj6/TODjG9qS4a/bm798RrerkTo7D9HiyXm4MtbCXHikJLigggFZSAnkeuABqhezpEiRXbyRFjMsJRUYDKA22EhLaaTB4oGPJI5HA8hk+/TzUgo0rN7Qpe7Vh7uOOJYp7dtQ1VEBXsstSzMbWkn+yQGUn+o11tgoEqn7H7konlRnSXHJ8zl59/JpESQ7n/d1Wi3cxttG3e5jKG0paahSEtoAwlAF0SsAD0A1QdOSlNJ3tSkAJFSfAAHQD6Hh6KKy980mHXuzFtbQqglaodRk23EkBtZSru3CyhWCPI4JwdfVtPWKlU992YNfeS5cFEtF+lVZQGC481Nb4vYwMB5tTbw9MOY9Dr1q/wCAeznxS1vmMa6lPYZa7ZdVcaZbQt6xWFuqSkArV41Scq954pSMn0AHpoor/9k=" alt="삼인">
+      </div>
+      <div class="login-company">(주)삼인 생산실적관리</div>
+      <div class="login-subtitle">* 좋은제품에 완벽을 더해 감동을 만들다</div>
+      <div class="login-card">
+        <div class="login-title">🔐 직원 로그인</div>
+        <div class="login-field">
+          <div class="login-lbl">사원명</div>
+          <input class="login-inp" id="inp-name" type="text" placeholder="이름을 입력하세요" autocomplete="off">
+        </div>
+        <div class="login-field">
+          <div class="login-lbl">비밀번호</div>
+          <input class="login-inp" id="inp-pw" type="password" placeholder="비밀번호를 입력하세요"
+            onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div class="login-err" id="login-err"></div>
+        <button class="login-btn" onclick="doLogin()">로그인</button>
+      </div>
+      <div class="login-footer">
+        본 시스템은 (주)삼인 임직원 전용입니다.<br>
+        무단 접근 시 법적 책임을 질 수 있습니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       메인 앱 화면
+  ══════════════════════════════════ -->
+  <div class="screen" id="screen-main">
+    <!-- 헤더 -->
+    <div class="hdr">
+      <div class="hdr-top">
+        <div class="hdr-logo">
+          <img src="data:image/jpeg;base64,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" alt="삼인">
+        </div>
+        <div>
+          <div class="hdr-title">(주)삼인 생산실적관리</div>
+          <div class="hdr-sub">* 좋은제품에 완벽을 더해 감동을 만들다</div>
+        </div>
+        <div class="hdr-user">
+          <div class="hdr-user-name" id="hdr-worker-name"></div>
+          <div class="hdr-logout" onclick="doLogout()">로그아웃</div>
+        </div>
+      </div>
+      <div class="tab-row">
+        <button class="tab on" id="tab-input" onclick="showTab('input',this)">실적 입력</button>
+        <button class="tab" id="tab-dash" onclick="showTab('dash',this)">현황 대시보드</button>
+        <button class="tab" id="tab-stat" onclick="showTab('stat',this)">품질통계</button>
+      </div>
+    </div>
+
+    <!-- 바디 -->
+    <div class="body" id="app-body">
+
+      <!-- ── 실적 입력 탭 ── -->
+      <div class="page on" id="page-input">
+
+        <div>
+          <div class="sec-label">작업일자 · 조</div>
+          <div class="card">
+            <div class="row2">
+              <div class="field">
+                <div class="lbl">작업일자</div>
+                <input class="inp" type="date" id="inp-workdate">
+              </div>
+              <div class="field">
+                <div class="lbl">작업조</div>
+                <div class="sel-row">
+                  <button class="sel-btn on" id="shift-day"  onclick="selectShift('주간',this)">주간</button>
+                  <button class="sel-btn"    id="shift-night" onclick="selectShift('야간',this)">야간</button>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <div class="lbl">작업구분</div>
+              <div class="sel-row">
+                <button class="sel-btn on" onclick="toggleSel(this)">자동</button>
+                <button class="sel-btn"    onclick="toggleSel(this)">수동</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sec-label">제품 정보</div>
+          <div class="card">
+            <div class="row2">
+              <div class="field">
+                <div class="lbl">고객사</div>
+                <select class="sel" id="sel-client" onchange="filterMaster()">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="field">
+                <div class="lbl">모델명</div>
+                <select class="sel" id="sel-model" onchange="filterMaster()">
+                  <option value="">선택</option>
+                </select>
+              </div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <div class="lbl">부품명</div>
+                <select class="sel" id="sel-part" onchange="filterMaster()">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="field">
+                <div class="lbl">원료명</div>
+                <select class="sel" id="sel-material">
+                  <option value="">선택</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <div class="lbl">색상</div>
+              <select class="sel" id="sel-color">
+                <option value="">선택</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sec-label">작업 정보</div>
+          <div class="card">
+            <div class="row2">
+              <div class="field">
+                <div class="lbl">설비번호</div>
+                <select class="sel" id="sel-equipment">
+                  <option value="">선택</option>
+                  <option value="1호기">1호기 / 70T</option>
+                  <option value="2호기">2호기 / 50T</option>
+                  <option value="3호기">3호기 / 110T</option>
+                  <option value="4호기">4호기 / 110T</option>
+                  <option value="5호기">5호기 / 130T</option>
+                  <option value="6호기">6호기 / 130T</option>
+                  <option value="7호기">7호기 / 170T</option>
+                  <option value="8호기">8호기 / 280T</option>
+                  <option value="9호기">9호기 / 250T</option>
+                  <option value="10호기">10호기 / 300T</option>
+                  <option value="11호기">11호기 / 380T</option>
+                  <option value="12호기">12호기 / 380T</option>
+                </select>
+              </div>
+              <div class="field">
+                <div class="lbl">작업자</div>
+                <select class="sel" id="sel-worker">
+                  <option value="">선택</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sec-label">생산 실적</div>
+          <div class="card">
+            <div class="row2">
+              <div class="field">
+                <div class="lbl">양품 수량</div>
+                <input class="inp" id="qty-good" type="number" placeholder="0" oninput="calcProduction()">
+              </div>
+              <div class="field">
+                <div class="lbl">불량 수량 <span style="font-size:10px;color:var(--teal);">(자동합산)</span></div>
+                <input class="inp" id="qty-bad" type="number" placeholder="0" readonly
+                  style="background:rgba(0,0,0,0.04);color:var(--red);font-weight:600;cursor:not-allowed;">
+              </div>
+            </div>
+
+            <div class="lbl" style="margin-top:10px;">불량 유형</div>
+            <div class="row2" style="margin-bottom:6px;">
+              <div class="field">
+                <div class="lbl">유형 1</div>
+                <select class="inp" id="defect-type-1" onchange="calcProduction()" style="margin-bottom:4px;">
+                  <option value="">유형 선택</option>
+                  <option>수축</option>
+                  <option>미성형</option>
+                  <option>GAS</option>
+                  <option>BURR</option>
+                  <option>치수불량</option>
+                  <option>기름불량</option>
+                  <option>금형긁힘</option>
+                  <option>FLOW마크</option>
+                  <option>흑점/흑줄</option>
+                  <option>기타</option>
+                </select>
+                <input class="inp" id="defect-qty-1" type="number" placeholder="수량" oninput="calcProduction()">
+              </div>
+              <div class="field">
+                <div class="lbl">유형 2</div>
+                <select class="inp" id="defect-type-2" onchange="calcProduction()" style="margin-bottom:4px;">
+                  <option value="">유형 선택</option>
+                  <option>수축</option>
+                  <option>미성형</option>
+                  <option>GAS</option>
+                  <option>BURR</option>
+                  <option>치수불량</option>
+                  <option>기름불량</option>
+                  <option>금형긁힘</option>
+                  <option>FLOW마크</option>
+                  <option>흑점/흑줄</option>
+                  <option>기타</option>
+                </select>
+                <input class="inp" id="defect-qty-2" type="number" placeholder="수량" oninput="calcProduction()">
+              </div>
+            </div>
+
+            <div class="field">
+              <div class="lbl">별도 수량</div>
+              <input class="inp" id="qty-extra" type="number" placeholder="0 (선택입력)" oninput="calcProduction()">
+            </div>
+            <div class="calc-row">
+              <div class="calc-card">
+                <div class="calc-num" id="calc-total">0</div>
+                <div class="calc-lbl">총생산수량</div>
+              </div>
+              <div class="calc-card good">
+                <div class="calc-num" id="calc-goodrate">0<span class="calc-unit">%</span></div>
+                <div class="calc-lbl">양품율</div>
+              </div>
+              <div class="calc-card bad">
+                <div class="calc-num" id="calc-badrate">0<span class="calc-unit">%</span></div>
+                <div class="calc-lbl">불량율</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="sec-label">별도구분 ISSUE</div>
+          <textarea class="issue-area" id="inp-issue" placeholder="품질 이슈 내용을 입력하세요&#10;(치수불량, 외관불량, 게이트불량 등)"></textarea>
+        </div>
+
+      </div><!-- /page-input -->
+
+      <!-- ── 현황 대시보드 탭 ── -->
+      <div class="page" id="page-dash">
+        <div>
+          <div class="sec-label">조회 필터</div>
+          <div class="filter-bar">
+            <div class="filter-row">
+              <div class="field"><div class="filter-lbl">설비번호</div>
+                <select class="filter-sel" id="f-equipment"><option value="">전체</option></select>
+              </div>
+              <div class="field"><div class="filter-lbl">작업자</div>
+                <select class="filter-sel" id="f-worker"><option value="">전체</option></select>
+              </div>
+            </div>
+            <div class="filter-row">
+              <div class="field"><div class="filter-lbl">조회 시작일</div>
+                <input class="filter-sel" type="date" id="f-date-from">
+              </div>
+              <div class="field"><div class="filter-lbl">조회 종료일</div>
+                <input class="filter-sel" type="date" id="f-date-to">
+              </div>
+            </div>
+            <button class="btn-main" style="padding:7px;font-size:11px;" onclick="applyFilter()">🔍 조회</button>
+          </div>
+        </div>
+        <div>
+          <div class="sec-label">실적 기록</div>
+          <div id="rec-list"><div class="empty-msg">데이터를 불러오는 중...</div></div>
+          <div class="del-hint" id="del-hint">삭제할 이력을 선택하세요</div>
+        </div>
+      </div><!-- /page-dash -->
+
+      <!-- ── 품질통계 탭 ── -->
+      <div class="page" id="page-stat">
+        <!-- 조회 일자 -->
+        <div class="filter-bar" style="margin-bottom:12px;">
+          <div class="sec-label">조회 일자</div>
+          <div class="filter-row">
+            <div class="field"><div class="filter-lbl">시작일</div>
+              <input class="filter-sel" type="date" id="s-date-from">
+            </div>
+            <div class="field"><div class="filter-lbl">종료일</div>
+              <input class="filter-sel" type="date" id="s-date-to">
+            </div>
+          </div>
+          <button class="btn-main" style="padding:7px;font-size:11px;margin-top:6px;" onclick="loadStat()">🔍 조회</button>
+        </div>
+        <!-- 타이틀 -->
+        <div style="text-align:center;padding:6px 0 12px;">
+          <div style="font-size:14px;font-weight:700;color:var(--blue);">삼인 품질실적현황</div>
+          <div id="stat-period" style="font-size:10px;color:var(--gray);margin-top:3px;"></div>
+        </div>
+        <!-- 생산 통계현황 -->
+        <div class="sec-label" style="margin-bottom:8px;">📊 생산 통계현황</div>
+        <div class="card" style="margin-bottom:8px;">
+          <div class="stat-card-head" style="color:var(--blue);">모델별 생산량 TOP5</div>
+          <div id="st-model"></div>
+        </div>
+        <div class="card" style="margin-bottom:8px;">
+          <div class="stat-card-head" style="color:var(--blue);">작업자별 생산량 TOP5</div>
+          <div id="st-worker"></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="stat-card-head" style="color:var(--blue);">설비별 생산량 TOP5</div>
+          <div id="st-equip"></div>
+        </div>
+        <!-- 불량 통계현황 -->
+        <div class="sec-label" style="margin-bottom:8px;">🔴 불량 통계현황</div>
+        <div class="card" style="margin-bottom:8px;">
+          <div class="stat-card-head" style="color:#c0392b;">부품별 불량율 TOP5</div>
+          <div id="st-part-defect"></div>
+        </div>
+        <div class="card" style="margin-bottom:8px;">
+          <div class="stat-card-head" style="color:#c0392b;">작업자별 불량율 TOP5</div>
+          <div id="st-worker-defect"></div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="stat-card-head" style="color:#c0392b;">유형별 불량수량 TOP5</div>
+          <div id="st-type-defect"></div>
+        </div>
+        <div id="stat-empty" style="display:none;text-align:center;padding:30px;font-size:12px;color:var(--gray);">
+          조회된 데이터가 없습니다.
+        </div>
+      </div><!-- /page-stat -->
+
+    </div><!-- /body -->
+
+    <!-- 버튼 바 -->
+    <div class="btn-row" id="btn-row">
+      <button class="btn-main" onclick="handleSave()">💾 저장</button>
+    </div>
+
+  </div><!-- /screen-main -->
+
+</div><!-- /phone -->
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     JavaScript
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<script>
+// ══════════════════════════════════════════════════
+// ★ 사원 목록 & 비밀번호 — 변경 시 이 부분만 수정 ★
+// ══════════════════════════════════════════════════
+const STAFF_LIST = [
+  { name: '경희', pw: '7574' },
+  { name: '지민', pw: '9876' },
+  { name: '샤리', pw: '1234' },
+  { name: '객',   pw: '5954' },
+  { name: '잔',   pw: '3787' },
+  { name: '디',   pw: '2426' },
+  { name: '맨',   pw: '5898' },
+  { name: '꼭',   pw: '2848' },
+  { name: '던',   pw: '5454' },
+  { name: '지원1',pw: '1518' },
+  { name: '지원2',pw: '9876' },
+  { name: '관리자',pw:'4988' },
+];
+// ══════════════════════════════════════════════════
+
+// ──────────────────────────────────────
+// GAS URL (MASTER·설비 시트 연동용)
+// ──────────────────────────────────────
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbywP1OvVru1xCZu9JNU32KRYrplOyYItcGOhfLkMwPVo8zJK0M5HrBx5TVty3FxoNz0Og/exec';
+
+// 앱 상태
+let currentTab  = 'input';
+let checkedRows = {};
+let allRecords  = [];
+let masterData  = [];
+let currentWorker = null;
+
+// ──────────────────────────────────────
+// 유틸: GAS GET 호출 (JSONP - CORS 우회)
+// ──────────────────────────────────────
+function gasGet(params) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*10000);
+    params.callback = cbName;
+    const qs = new URLSearchParams(params).toString();
+    const script = document.createElement('script');
+    const timer = setTimeout(() => {
+      delete window[cbName];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      reject(new Error('timeout'));
+    }, 15000);
+    window[cbName] = function(data) {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      resolve(data);
+    };
+    script.src = GAS_URL + '?' + qs;
+    script.onerror = () => {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (document.body.contains(script)) document.body.removeChild(script);
+      reject(new Error('script load error'));
+    };
+    document.body.appendChild(script);
+  });
+}
+
+// 유틸: GAS POST 호출 (no-cors 모드)
+async function gasPost(data) {
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: JSON.stringify(data),
+    });
+    return { success: true };
+  } catch(e) {
+    return { success: false, message: e.message };
+  }
+}
+
+// ──────────────────────────────────────
+// 토스트 알림
+// ──────────────────────────────────────
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+// ──────────────────────────────────────
+// 로딩
+// ──────────────────────────────────────
+function setLoading(on) {
+  document.getElementById('loading').classList.toggle('on', on);
+}
+
+// ──────────────────────────────────────
+// 로그인
+// ──────────────────────────────────────
+function doLogin() {
+  const name = document.getElementById('inp-name').value.trim();
+  const pw   = document.getElementById('inp-pw').value.trim();
+  const errEl= document.getElementById('login-err');
+  errEl.textContent = '';
+
+  if (!name || !pw) { errEl.textContent = '사원명과 비밀번호를 입력하세요.'; return; }
+
+  const found = STAFF_LIST.find(s => s.name === name && s.pw === pw);
+  if (found) {
+    currentWorker = { name: found.name };
+    document.getElementById('hdr-worker-name').textContent = found.name + ' 님';
+    document.getElementById('screen-login').classList.remove('on');
+    document.getElementById('screen-main').classList.add('on');
+    initApp();
+  } else {
+    errEl.textContent = '사원명 또는 비밀번호가 일치하지 않습니다.';
+    document.getElementById('inp-pw').value = '';
+    document.getElementById('inp-pw').focus();
+  }
+}
+
+// ──────────────────────────────────────
+// 로그아웃
+// ──────────────────────────────────────
+function doLogout() {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  currentWorker = null;
+  document.getElementById('inp-name').value = '';
+  document.getElementById('inp-pw').value   = '';
+  document.getElementById('login-err').textContent = '';
+  document.getElementById('screen-main').classList.remove('on');
+  document.getElementById('screen-login').classList.add('on');
+}
+
+// ══════════════════════════════════════════════════
+// ★ 설비 목록 — 변경 시 이 부분만 수정 ★
+// ══════════════════════════════════════════════════
+const EQUIPMENT_LIST = [
+  { name: '1호기',  ton: '70T'  },
+  { name: '2호기',  ton: '50T'  },
+  { name: '3호기',  ton: '110T' },
+  { name: '4호기',  ton: '110T' },
+  { name: '5호기',  ton: '130T' },
+  { name: '6호기',  ton: '130T' },
+  { name: '7호기',  ton: '170T' },
+  { name: '8호기',  ton: '280T' },
+  { name: '9호기',  ton: '250T' },
+  { name: '10호기', ton: '300T' },
+  { name: '11호기', ton: '380T' },
+  { name: '12호기', ton: '380T' },
+];
+// ══════════════════════════════════════════════════
+
+// ──────────────────────────────────────
+// 앱 초기화 (로그인 후)
+// ──────────────────────────────────────
+async function initApp() {
+  // 오늘 날짜 기본값
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('inp-workdate').value = today;
+  document.getElementById('f-date-from').value  = today;
+  document.getElementById('f-date-to').value    = today;
+
+  // ── 현황 필터 설비 목록 (HTML 옵션과 동일하게 구성) ──
+  // 설비 필터: value = "1호기", 표시 = "1호기 / 70T" 로 분리
+  const feqSel = document.getElementById('f-equipment');
+  feqSel.innerHTML = '<option value="">전체</option>';
+  EQUIPMENT_LIST.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.name;                         // r.equipment 와 일치
+    opt.textContent = e.name + ' / ' + e.ton;  // 화면 표시
+    feqSel.appendChild(opt);
+  });
+
+  // ── 작업자: 로그인한 사원명 자동 고정 ──
+  setWorkerFixed();
+
+  // ── 현황 필터 작업자 목록 ──
+  buildFilterOptions('f-worker', STAFF_LIST.map(s => s.name));
+
+  // ── MASTER 제품정보: GAS 연동 ──
+  setLoading(true);
+  try {
+    const res = await gasGet({ action: 'getMaster' });
+    if (res.success) buildMasterDropdowns(res.data);
+  } catch(e) {
+    showToast('제품 MASTER 로드 실패 (GAS URL 확인 필요)', 'err');
+  } finally {
+    setLoading(false);
+  }
+
+  // 대시보드 기록 로드 시도 (GAS 연동 시 동작)
+  loadRecords();
+}
+
+// ──────────────────────────────────────
+// MASTER 드롭다운 구성
+// ──────────────────────────────────────
+function buildMasterDropdowns(data) {
+  masterData = data;
+  const clients = [...new Set(data.map(r => r.client))];
+  fillSelect('sel-client', clients);
+}
+
+function filterMaster() {
+  const client   = document.getElementById('sel-client').value;
+  const model    = document.getElementById('sel-model').value;
+  const part     = document.getElementById('sel-part').value;
+
+  let rows = masterData;
+  if (client) rows = rows.filter(r => r.client === client);
+
+  const models = [...new Set(rows.map(r => r.model))];
+  fillSelect('sel-model', models, model);
+
+  if (model) rows = rows.filter(r => r.model === model);
+  const parts = [...new Set(rows.map(r => r.part))];
+  fillSelect('sel-part', parts, part);
+
+  if (part) rows = rows.filter(r => r.part === part);
+  const materials = [...new Set(rows.map(r => r.material))];
+  fillSelect('sel-material', materials);
+
+  const colors = [...new Set(rows.map(r => r.color))];
+  fillSelect('sel-color', colors);
+}
+
+function fillSelect(id, values, keepVal = '') {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '<option value="">선택</option>';
+  values.filter(Boolean).forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = v;
+    if (v === keepVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// ──────────────────────────────────────
+// 설비 드롭다운 (로컬 EQUIPMENT_LIST 기반)
+// ──────────────────────────────────────
+function buildEquipmentDropdown(data) {
+  const sel = document.getElementById('sel-equipment');
+  sel.innerHTML = '<option value="">선택</option>';
+  data.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.name;                             // 저장값: 호기명만
+    opt.textContent = e.name + ' / ' + e.ton;      // 표시: 1호기 / 70T
+    sel.appendChild(opt);
+  });
+}
+
+// ──────────────────────────────────────
+// 작업자: 로그인 사원명 자동 고정 표시
+// ──────────────────────────────────────
+function setWorkerFixed() {
+  const sel = document.getElementById('sel-worker');
+  sel.innerHTML = '';
+  const opt = document.createElement('option');
+  opt.value = opt.textContent = currentWorker ? currentWorker.name : '';
+  opt.selected = true;
+  sel.appendChild(opt);
+  sel.disabled = true;   // 변경 불가
+}
+
+// ──────────────────────────────────────
+// 필터 옵션 구성
+// ──────────────────────────────────────
+function buildFilterOptions(id, list) {
+  const sel = document.getElementById(id);
+  list.filter(Boolean).forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = v;
+    sel.appendChild(opt);
+  });
+}
+
+// 실제 데이터 기반으로 작업자 필터 목록 재구성
+function refreshWorkerFilter(records) {
+  const sel = document.getElementById('f-worker');
+  const prev = sel.value; // 기존 선택값 유지
+  const workers = [...new Set(records.map(r => String(r.worker||'').trim()).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">전체</option>';
+  workers.forEach(w => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = w;
+    if (w === prev) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// ──────────────────────────────────────
+// 생산수량 계산
+// ──────────────────────────────────────
+function calcProduction() {
+  // 불량유형 합산 → qty-bad 자동기입
+  const dq1 = parseInt(document.getElementById('defect-qty-1').value) || 0;
+  const dq2 = parseInt(document.getElementById('defect-qty-2').value) || 0;
+  const autoBAD = dq1 + dq2;
+  document.getElementById('qty-bad').value = autoBAD > 0 ? autoBAD : '';
+
+  const good  = parseInt(document.getElementById('qty-good').value)  || 0;
+  const bad   = autoBAD;
+  const extra = parseInt(document.getElementById('qty-extra').value) || 0;
+  const total = good + bad + extra;
+  const goodRate = total > 0 ? (good / total * 100).toFixed(1) : '0.0';
+  const badRate  = total > 0 ? (bad  / total * 100).toFixed(1) : '0.0';
+  document.getElementById('calc-total').textContent    = total.toLocaleString();
+  document.getElementById('calc-goodrate').innerHTML   = goodRate + '<span class="calc-unit">%</span>';
+  document.getElementById('calc-badrate').innerHTML    = badRate  + '<span class="calc-unit">%</span>';
+}
+
+// ──────────────────────────────────────
+// 저장 (시트 1행 헤더 기반 동적 매핑)
+// ──────────────────────────────────────
+
+// 앱의 입력값 맵 (헤더명 → 값 함수)
+function getInputValueMap() {
+  const good  = parseInt(document.getElementById('qty-good').value)    || 0;
+  const dq1   = parseInt(document.getElementById('defect-qty-1').value) || 0;
+  const dq2   = parseInt(document.getElementById('defect-qty-2').value) || 0;
+  const bad   = dq1 + dq2;
+  const extra = parseInt(document.getElementById('qty-extra').value)    || 0;
+  const total = good + bad + extra;
+
+  // 불량유형 텍스트 조합 (주요 품질 ISSUE에 자동 반영)
+  const dt1 = document.getElementById('defect-type-1').value;
+  const dt2 = document.getElementById('defect-type-2').value;
+  const defectSummary = [dt1&&dq1?dt1+' '+dq1+'개':'', dt2&&dq2?dt2+' '+dq2+'개':''].filter(Boolean).join(' / ');
+
+  // 소수점 1자리 비율 계산
+  const goodRate = total > 0 ? parseFloat((good / total * 100).toFixed(1)) : 0;
+  const badRate  = total > 0 ? parseFloat((bad  / total * 100).toFixed(1)) : 0;
+
+  // 작업조: id로 직접 읽기
+  const shiftDay   = document.getElementById('shift-day');
+  const shiftNight = document.getElementById('shift-night');
+  const shift = (shiftNight && shiftNight.classList.contains('on')) ? '야간' : '주간';
+
+  // 작업구분: 두 번째 sel-row의 on 버튼
+  let workType = '자동';
+  const workTypeRow = document.querySelectorAll('#page-input .sel-row')[1];
+  if (workTypeRow) {
+    const onBtn = workTypeRow.querySelector('.sel-btn.on');
+    if (onBtn) workType = onBtn.textContent.trim();
+  }
+
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const savedAt = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate())
+                + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+
+  const issueManual = document.getElementById('inp-issue').value || '';
+  // issueManual: 사용자 직접 입력값만 (defectSummary 합치지 않음)
+
+  return {
+    // ── 헤더명과 1:1 매핑 (시트 1행 헤더명과 정확히 일치) ──
+    '저장일시':          savedAt,
+    '작업일자':          document.getElementById('inp-workdate').value,
+    '작업조':            shift,
+    '작업구분':          workType,
+    '고객사':            document.getElementById('sel-client').value,
+    '모델명':            document.getElementById('sel-model').value,
+    '부품명':            document.getElementById('sel-part').value,
+    '원료명':            document.getElementById('sel-material').value,
+    '색상':              document.getElementById('sel-color').value,
+    '설비번호':          document.getElementById('sel-equipment').value,
+    '작업자':            document.getElementById('sel-worker').value,
+    '양품수량':          good,
+    '불량수량':          bad,       // L열
+    '불량1':            dt1 || '', // M열: 유형1 이름
+    '수량1':            dq1 || 0,  // N열: 유형1 수량
+    '불량2':            dt2 || '', // O열: 유형2 이름
+    '수량2':            dq2 || 0,  // P열: 유형2 수량
+    '별도수량':          extra,
+    '총생산수량':        total,
+    '양품율(%)':         goodRate,
+    '불량율(%)':         badRate,
+    '양품율':            goodRate,   // 헤더가 '양품율' 일 때
+    '불량율':            badRate,    // 헤더가 '불량율' 일 때 (N열)
+    '별도구분 ISSUE':    issueManual,  // S열: 직접 입력값만
+    '별도구분ISSUE':     issueManual,
+    '품질이슈':          issueManual,
+    '주요 품질 ISSUE':   issueManual,
+    '주요품질ISSUE':     issueManual,
+  };
+}
+
+async function handleSave() {
+  // 필수값 검증
+  const required = [
+    { id: 'inp-workdate',   label: '작업일자' },
+    { id: 'sel-client',     label: '고객사' },
+    { id: 'sel-model',      label: '모델명' },
+    { id: 'sel-part',       label: '부품명' },
+    { id: 'sel-equipment',  label: '설비번호' },
+    { id: 'sel-worker',     label: '작업자' },
+    { id: 'qty-good',       label: '양품수량' },
+  ];
+  for (const f of required) {
+    const el = document.getElementById(f.id);
+    if (!el || !el.value) { showToast(f.label + '을(를) 입력/선택하세요', 'err'); if(el) el.focus(); return; }
+  }
+
+  setLoading(true);
+  try {
+    // ① 시트 1행 헤더 가져오기
+    const headerRes = await gasGet({ action: 'getHeaders', sheet: '생산실적' });
+    if (!headerRes.success) {
+      showToast('헤더 조회 실패: ' + (headerRes.message || ''), 'err');
+      setLoading(false);
+      return;
+    }
+    const headers = headerRes.headers; // ['저장일시','작업일자', ...]
+
+    // ② 헤더 순서에 맞게 rowData 배열 구성
+    const valueMap = getInputValueMap();
+    const rowData = headers.map(h => {
+      const v = valueMap[h];
+      return (v !== undefined && v !== null) ? v : '';
+    });
+
+    // ③ 저장 요청
+    const res = await gasPost({
+      action:  'saveRecord',
+      rowData: rowData,
+    });
+
+    if (res.success) {
+      showToast('✅ 저장 완료!', 'ok');
+      resetInputForm();
+      await loadRecords();
+    } else {
+      showToast('저장 실패: ' + (res.message || ''), 'err');
+    }
+  } catch(e) {
+    showToast('서버 오류: ' + e.message, 'err');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// 입력 폼 초기화
+function resetInputForm() {
+  ['sel-client','sel-model','sel-part','sel-material','sel-color',
+   'sel-equipment','qty-good','qty-extra','defect-qty-1','defect-qty-2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.tagName === 'SELECT') el.selectedIndex = 0;
+    else el.value = '';
+  });
+  document.getElementById('inp-issue').value = '';
+  document.getElementById('defect-type-1').value = '';
+  document.getElementById('defect-type-2').value = '';
+  document.getElementById('qty-bad').value = '';
+  setWorkerFixed();   // 저장 후에도 로그인 사원명 유지
+  calcProduction();
+}
+
+// ──────────────────────────────────────
+// 실적 기록 로드
+// ──────────────────────────────────────
+async function loadRecords() {
+  document.getElementById('rec-list').innerHTML = '<div class="empty-msg">불러오는 중...</div>';
+  try {
+    const res = await gasGet({ action: 'getRecords' });
+    if (res.success) {
+      allRecords = res.data || [];
+      // 실제 데이터에 있는 작업자 목록으로 필터 갱신
+      refreshWorkerFilter(allRecords);
+      renderRecords(allRecords);
+    } else {
+      allRecords = [];
+      renderRecords([]);
+    }
+  } catch(e) {
+    allRecords = [];
+    renderRecords([]);
+    // GAS 미연동 시 안내 메시지
+    document.getElementById('rec-list').innerHTML =
+      '<div class="empty-msg">GAS URL 연동 후 기록이 표시됩니다.</div>';
+  }
+}
+
+// ──────────────────────────────────────
+// 필터 적용 & 렌더
+// ──────────────────────────────────────
+// 날짜값 → "yyyy-MM-dd" 문자열로 안전하게 변환
+function toDateStr(val) {
+  if (!val) return '';
+  // 이미 "yyyy-MM-dd" 형태
+  const m1 = String(val).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m1) return m1[0];
+  // "yyyy/MM/dd" 형태
+  const m2 = String(val).match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+  if (m2) return m2[1] + '-' + m2[2] + '-' + m2[3];
+  // Date 객체이거나 "Wed May 20 2026..." 같은 문자열
+  const d = new Date(val);
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + dd;
+  }
+  return String(val).slice(0,10);
+}
+
+function applyFilter() {
+  const eq   = document.getElementById('f-equipment').value.trim();
+  const wk   = document.getElementById('f-worker').value.trim();
+  const from = document.getElementById('f-date-from').value;
+  const to   = document.getElementById('f-date-to').value;
+
+  let rows = allRecords;
+
+  // 설비번호
+  if (eq) rows = rows.filter(r => String(r.equipment||'').trim() === eq);
+
+  // 작업자
+  if (wk) rows = rows.filter(r => String(r.worker||'').trim() === wk);
+
+  // 날짜: toDateStr()으로 정규화 후 비교
+  if (from || to) {
+    rows = rows.filter(r => {
+      const d = toDateStr(r.workDate);
+      if (from && d < from) return false;
+      if (to   && d > to)   return false;
+      return true;
+    });
+  }
+
+  renderRecords(rows);
+}
+
+function renderRecords(rows) {
+  checkedRows = {};
+  const list = document.getElementById('rec-list');
+  if (!rows.length) {
+    list.innerHTML = '<div class="empty-msg">조회된 실적이 없습니다.</div>';
+    return;
+  }
+  list.innerHTML = rows.map(r => {
+    const badRate = parseFloat(parseFloat(r.badRate || 0).toFixed(1));
+    const rateClass = badRate < 1 ? 'defect-ok' : badRate < 3 ? 'defect-warn' : 'defect-bad';
+    // 저장일시 우선, 없으면 작업일자 → "MM/DD HH:mm" 형식
+    // toDateStr()으로 정규화해서 어떤 형태로 와도 정확히 표시
+    let dateStr = '';
+    const savedNorm = String(r.savedAt || '');
+    const mFull = savedNorm.match(/(\d{4})[\-\/](\d{2})[\-\/](\d{2})[T ](\d{2}):(\d{2})/);
+    if (mFull) {
+      dateStr = mFull[2] + '/' + mFull[3] + ' ' + mFull[4] + ':' + mFull[5];
+    } else {
+      // workDate를 안전하게 파싱
+      const wd = toDateStr(r.workDate);
+      const m2 = wd.match(/(\d{4})-(\d{2})-(\d{2})/);
+      dateStr = m2 ? m2[2] + '/' + m2[3] : wd;
+    }
+    const shiftBadge = r.shift === '야간'
+      ? '<span class="shift-badge shift-night">야간</span>'
+      : '<span class="shift-badge shift-day">주간</span>';
+    const issueBadge = r.issueNote
+      ? `<span class="issue-badge">${r.issueNote.slice(0,20)}${r.issueNote.length>20?'…':''}</span>` : '';
+    return `
+    <div class="rec-card" id="rec-${r.rowIndex}">
+      <div class="rec-head">
+        <div class="rec-check" id="chk-${r.rowIndex}" onclick="toggleCheck(${r.rowIndex})"></div>
+        <div class="rec-machine">${r.equipment||'?'} · ${r.worker||'?'}</div>
+        <div style="display:flex;align-items:center;gap:5px;">
+          ${shiftBadge}
+          <div class="rec-time">${dateStr}</div>
+        </div>
+      </div>
+      <div class="rec-body">
+        <div class="rec-product">${r.client||''} · ${r.model||''} · ${r.part||''} · ${r.color||''}</div>
+        <div class="rec-stats">
+          <div class="rec-stat"><div class="rec-stat-num" style="color:var(--teal);">${(r.qtyGood||0).toLocaleString()}</div><div class="rec-stat-lbl">양품</div></div>
+          <div class="rec-stat"><div class="rec-stat-num" style="color:var(--red);">${(r.qtyBad||0).toLocaleString()}</div><div class="rec-stat-lbl">불량</div></div>
+          <div class="rec-stat"><div class="${rateClass}">${badRate}%</div><div class="rec-stat-lbl">불량율</div></div>
+        </div>
+        ${issueBadge}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ──────────────────────────────────────
+// 체크박스 토글 (삭제 선택)
+// ──────────────────────────────────────
+function toggleCheck(rowIndex) {
+  checkedRows[rowIndex] = !checkedRows[rowIndex];
+  const chk  = document.getElementById('chk-' + rowIndex);
+  const card = document.getElementById('rec-' + rowIndex);
+  if (checkedRows[rowIndex]) {
+    chk.classList.add('checked'); card.classList.add('selected');
+  } else {
+    chk.classList.remove('checked'); card.classList.remove('selected');
+  }
+  document.getElementById('del-hint').classList.remove('show');
+}
+
+// ──────────────────────────────────────
+// 삭제
+// ──────────────────────────────────────
+async function handleDelete() {
+  const indices = Object.keys(checkedRows).filter(k => checkedRows[k]).map(Number);
+  if (!indices.length) { document.getElementById('del-hint').classList.add('show'); return; }
+  if (!confirm(indices.length + '건을 삭제하시겠습니까?')) return;
+
+  setLoading(true);
+  try {
+    const res = await gasPost({ action: 'deleteRecord', rowIndices: indices });
+    if (res.success) {
+      showToast('🗑️ ' + res.message, 'ok');
+      await loadRecords();
+    } else {
+      showToast('삭제 실패: ' + res.message, 'err');
+    }
+  } catch(e) {
+    showToast('서버 오류가 발생했습니다.', 'err');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ──────────────────────────────────────
+// 탭 전환
+// ──────────────────────────────────────
+function showTab(name, el) {
+  currentTab = name;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('page-' + name).classList.add('on');
+  el.classList.add('on');
+  renderBtns();
+  if (name === 'dash') loadRecords();
+  if (name === 'stat') initStatTab();
+}
+
+function renderBtns() {
+  const row = document.getElementById('btn-row');
+  if (currentTab === 'input') {
+    row.innerHTML = '<button class="btn-main" onclick="handleSave()">💾 저장</button>';
+  } else {
+    row.innerHTML = ''; // 대시보드/통계 탭에서는 버튼 없음
+  }
+}
+
+// ──────────────────────────────────────
+// 셀렉트 버튼 토글 (작업조/작업구분)
+// ──────────────────────────────────────
+function toggleSel(el) {
+  el.closest('.sel-row').querySelectorAll('.sel-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+}
+function selectShift(val, el) { toggleSel(el); }
+// ══════════════════════════════════════════════════
+// 품질통계 탭
+// ══════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════
+// 품질통계 탭 — 순수 CSS 막대 그래프
+// ══════════════════════════════════════════════════
+function initStatTab() {
+  const today = new Date().toISOString().slice(0,10);
+  const monthStart = today.slice(0,8) + '01';
+  if (!document.getElementById('s-date-from').value)
+    document.getElementById('s-date-from').value = monthStart;
+  if (!document.getElementById('s-date-to').value)
+    document.getElementById('s-date-to').value = today;
+  loadStat();
+}
+
+async function loadStat() {
+  const from = document.getElementById('s-date-from').value;
+  const to   = document.getElementById('s-date-to').value;
+  setLoading(true);
+  try {
+    const res = await gasGet({ action: 'getRecords' });
+    if (!res.success) { showToast('데이터 조회 실패', 'err'); return; }
+    let rows = res.data || [];
+    if (from || to) {
+      rows = rows.filter(r => {
+        const d = toDateStr(r.workDate);
+        if (from && d < from) return false;
+        if (to   && d > to)   return false;
+        return true;
+      });
+    }
+    document.getElementById('stat-period').textContent =
+      (from||'?') + ' ~ ' + (to||'?') + ' (' + rows.length + '건)';
+    if (!rows.length) {
+      document.getElementById('stat-empty').style.display = 'block';
+      ['st-model','st-worker','st-equip','st-part-defect','st-worker-defect','st-type-defect']
+        .forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=''; });
+      setLoading(false); return;
+    }
+    document.getElementById('stat-empty').style.display = 'none';
+    renderStatBars(rows);
+  } catch(e) {
+    showToast('오류: ' + e.message, 'err');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function calcTop5(map) {
+  return Object.entries(map)
+    .map(([n,v]) => ({name:n, val:v}))
+    .sort((a,b) => b.val - a.val)
+    .slice(0,5);
+}
+
+// 순위별 색상
+const RANK_COLORS = ['#1D5FA5','#1D7EC0','#2196A8','#2BA88A','#3AC47D'];
+const RANK_DEF_COLORS = ['#C0392B','#E74C3C','#E67E22','#E8A82A','#F1C40F'];
+
+function renderBarChart(elId, data, suffix, colors) {
+  const el = document.getElementById(elId);
+  if (!el || !data.length) { if(el) el.innerHTML = '<div style="font-size:11px;color:#aaa;padding:8px 0;text-align:center;">데이터 없음</div>'; return; }
+  const max = data[0].val || 1;
+  el.innerHTML = data.map((d,i) => `
+    <div class="st-row">
+      <div class="st-rank" style="background:${colors[i]||colors[colors.length-1]};">${i+1}</div>
+      <div class="st-name" title="${d.name}">${d.name}</div>
+      <div class="st-bar-wrap">
+        <div class="st-bar" style="width:${Math.max(4,Math.round(d.val/max*100))}%;background:${colors[i]||colors[colors.length-1]};"></div>
+      </div>
+      <div class="st-val" style="color:${colors[i]||colors[colors.length-1]};">${suffix==='%' ? d.val.toFixed(1)+'%' : d.val.toLocaleString()+'개'}</div>
+    </div>`).join('');
+}
+
+function renderStatBars(rows) {
+  const qty = r => (parseInt(r.qtyGood)||0) + (parseInt(r.qtyBad)||0) + (parseInt(r.qtyExtra)||0);
+
+  // 모델별 생산량
+  const modelMap = {};
+  rows.forEach(r => { const k=String(r.model||'').trim(); if(k) modelMap[k]=(modelMap[k]||0)+qty(r); });
+  renderBarChart('st-model', calcTop5(modelMap), '개', RANK_COLORS);
+
+  // 작업자별 생산량
+  const workerMap = {};
+  rows.forEach(r => { const k=String(r.worker||'').trim(); if(k) workerMap[k]=(workerMap[k]||0)+qty(r); });
+  renderBarChart('st-worker', calcTop5(workerMap), '개', RANK_COLORS);
+
+  // 설비별 생산량
+  const equipMap = {};
+  rows.forEach(r => { const k=String(r.equipment||'').trim(); if(k) equipMap[k]=(equipMap[k]||0)+qty(r); });
+  renderBarChart('st-equip', calcTop5(equipMap), '개', RANK_COLORS);
+
+  // 부품별 불량율
+  const partMap = {};
+  rows.forEach(r => {
+    const k=String(r.part||'').trim(); if(!k) return;
+    if(!partMap[k]) partMap[k]={good:0,bad:0};
+    partMap[k].good+=parseInt(r.qtyGood)||0;
+    partMap[k].bad +=parseInt(r.qtyBad)||0;
+  });
+  const t5part = Object.entries(partMap)
+    .map(([n,v])=>{ const t=v.good+v.bad; return {name:n, val:t>0?parseFloat((v.bad/t*100).toFixed(1)):0}; })
+    .sort((a,b)=>b.val-a.val).slice(0,5);
+  renderBarChart('st-part-defect', t5part, '%', RANK_DEF_COLORS);
+
+  // 작업자별 불량율
+  const wDefMap = {};
+  rows.forEach(r => {
+    const k=String(r.worker||'').trim(); if(!k) return;
+    if(!wDefMap[k]) wDefMap[k]={good:0,bad:0};
+    wDefMap[k].good+=parseInt(r.qtyGood)||0;
+    wDefMap[k].bad +=parseInt(r.qtyBad)||0;
+  });
+  const t5wDef = Object.entries(wDefMap)
+    .map(([n,v])=>{ const t=v.good+v.bad; return {name:n, val:t>0?parseFloat((v.bad/t*100).toFixed(1)):0}; })
+    .sort((a,b)=>b.val-a.val).slice(0,5);
+  renderBarChart('st-worker-defect', t5wDef, '%', RANK_DEF_COLORS);
+
+  // 유형별 불량수량
+  const typeMap = {};
+  rows.forEach(r => {
+    // defect1/defectQty1 (GAS 영문키) + 불량1/수량1 (한글키) 모두 커버
+    const t1 = String(r.defect1 || r['불량1'] || '').trim();
+    const q1 = parseInt(r.defectQty1 || r['수량1'] || 0) || 0;
+    const t2 = String(r.defect2 || r['불량2'] || '').trim();
+    const q2 = parseInt(r.defectQty2 || r['수량2'] || 0) || 0;
+    if (t1 && q1) typeMap[t1] = (typeMap[t1] || 0) + q1;
+    if (t2 && q2) typeMap[t2] = (typeMap[t2] || 0) + q2;
+  });
+  if (Object.keys(typeMap).length) {
+    renderBarChart('st-type-defect', calcTop5(typeMap), '개', RANK_DEF_COLORS);
+  } else {
+    const el = document.getElementById('st-type-defect');
+    if (el) el.innerHTML = '<div style="font-size:11px;color:var(--gray);text-align:center;padding:16px 0;">불량유형 입력 데이터 없음</div>';
+  }
+}
+
+</script>
+</body>
+</html>
