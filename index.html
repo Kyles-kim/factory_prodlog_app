@@ -4,10 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>(주)삼인 생산실적관리</title>
-<link rel="apple-touch-icon" href="ICON192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="ICON192.png">
-<link rel="icon" type="image/png" sizes="192x192" href="ICON192.png">
-<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="ICON192.png?v=3">
+<link rel="apple-touch-icon" href="ICON192.png?v=3">
 <style>
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    기본 리셋 & 전역
@@ -96,7 +94,6 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
 .btn-row{display:flex;gap:8px;padding:9px 10px;background:var(--bg);border-top:.5px solid var(--border);}
 .btn-main{flex:1;padding:10px;background:var(--blue);color:white;border:none;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;}
 .btn-main:active{background:var(--blue-dark);}
-.btn-del{flex:1;padding:10px;background:var(--red);color:white;border:none;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    현황 대시보드
@@ -108,9 +105,6 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
 .rec-card{background:white;border:.5px solid var(--border);border-radius:11px;overflow:hidden;margin-bottom:7px;transition:box-shadow .15s,opacity .25s;}
 .rec-card.selected{border:.5px solid var(--blue);box-shadow:0 0 0 2px #b5d4f4;}
 .rec-head{background:var(--blue);padding:7px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
-.rec-check{width:16px;height:16px;min-width:16px;border-radius:4px;border:1.5px solid rgba(255,255,255,0.6);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .12s;flex-shrink:0;}
-.rec-check.checked{background:#5dd67c;border-color:#5dd67c;}
-.rec-check.checked::after{content:'✓';font-size:10px;color:white;font-weight:700;line-height:1;}
 .rec-machine{font-size:11px;font-weight:600;color:white;flex:1;}
 .rec-time{font-size:9px;color:rgba(255,255,255,0.7);}
 .rec-body{padding:9px 10px;}
@@ -126,9 +120,23 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
 .shift-badge{display:inline-block;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:600;}
 .shift-day{background:#e6f0fb;color:var(--blue);}
 .shift-night{background:#0d3270;color:white;}
-.del-hint{font-size:10px;color:var(--red);text-align:center;padding:4px 0 0;display:none;}
-.del-hint.show{display:block;}
 .empty-msg{text-align:center;padding:28px 0;font-size:11px;color:var(--gray);}
+.rec-edit-btn{
+  background:#f0a500;border:none;
+  color:#fff;font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px;
+  cursor:pointer;white-space:nowrap;transition:background .15s;letter-spacing:.02em;
+}
+.rec-edit-btn:active{background:#c47f00;}
+.btn-cancel{
+  flex:1;padding:10px;background:#6b7a99;color:white;border:none;border-radius:9px;
+  font-size:12px;font-weight:600;cursor:pointer;
+}
+.btn-cancel:active{background:#555f72;}
+.editing-banner{
+  background:var(--warn-light);border:1px solid #e8a82a;border-radius:8px;
+  padding:8px 12px;font-size:11px;color:#854f0b;font-weight:600;text-align:center;
+  margin-bottom:8px;
+}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    페이지 전환 (탭 전환)
@@ -276,6 +284,10 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
 
       <!-- ── 실적 입력 탭 ── -->
       <div class="page on" id="page-input">
+
+        <div class="editing-banner" id="editing-banner" style="display:none;">
+          📝 수정 모드 — 내용을 변경 후 하단의 [수정 저장]을 눌러주세요
+        </div>
 
         <div>
           <div class="sec-label">작업일자 · 조</div>
@@ -483,7 +495,6 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
         <div>
           <div class="sec-label">실적 기록</div>
           <div id="rec-list"><div class="empty-msg">데이터를 불러오는 중...</div></div>
-          <div class="del-hint" id="del-hint">삭제할 이력을 선택하세요</div>
         </div>
       </div><!-- /page-dash -->
 
@@ -559,18 +570,17 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
 // ★ 사원 목록 & 비밀번호 — 변경 시 이 부분만 수정 ★
 // ══════════════════════════════════════════════════
 const STAFF_LIST = [
-  { name: '경희', pw: '8934' },
-  { name: '지민', pw: '4560' },
-  { name: '챠리', pw: '1686' },
-  { name: '객', pw: '2407' },
-  { name: '잔', pw: '5589' },
-  { name: '디', pw: '1377' },
-  { name: '맨', pw: '9304' },
-  { name: '꼭', pw: '2539' },
-  { name: '자동',pw: '4444' },
-  { name: '지원',pw: '1234' },
-  { name: '은미',pw: '1111' },
-  { name: '관곤',pw: '5555' },
+  { name: '경희', pw: '7574' },
+  { name: '지민', pw: '9876' },
+  { name: '챠리', pw: '1234' },
+  { name: '객',   pw: '5954' },
+  { name: '잔',   pw: '3787' },
+  { name: '디',   pw: '2426' },
+  { name: '맨',   pw: '5898' },
+  { name: '꼭',   pw: '2848' },
+  { name: '지원',pw: '1518' },
+  { name: '은미',pw: '9752' },
+  { name: '관곤',pw:'4988' },
 ];
 // ══════════════════════════════════════════════════
 
@@ -581,10 +591,10 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbywP1OvVru1xCZu9JNU32KR
 
 // 앱 상태
 let currentTab  = 'input';
-let checkedRows = {};
 let allRecords  = [];
 let masterData  = [];
 let currentWorker = null;
+let editingRowIndex = null;  // 수정 모드 시 해당 행 인덱스
 
 // ──────────────────────────────────────
 // 유틸: GAS GET 호출 (JSONP - CORS 우회)
@@ -976,14 +986,24 @@ async function handleSave() {
     });
 
     // ③ 저장 요청
+    // 수정 모드일 때: 기존 행 삭제 후 새로 저장
+    if (editingRowIndex !== null) {
+      await gasPost({ action: 'deleteRecord', rowIndices: [editingRowIndex] });
+    }
+
     const res = await gasPost({
       action:  'saveRecord',
       rowData: rowData,
     });
 
     if (res.success) {
-      showToast('✅ 저장 완료!', 'ok');
+      const isEdit = editingRowIndex !== null;
+      editingRowIndex = null;
+      const banner = document.getElementById('editing-banner');
+      if (banner) banner.style.display = 'none';
+      showToast(isEdit ? '✅ 수정 완료!' : '✅ 저장 완료!', 'ok');
       resetInputForm();
+      renderBtns();
       await loadRecords();
     } else {
       showToast('저장 실패: ' + (res.message || ''), 'err');
@@ -1007,6 +1027,8 @@ function resetInputForm() {
   document.getElementById('defect-type-1').value = '';
   document.getElementById('defect-type-2').value = '';
   document.getElementById('qty-bad').value = '';
+  const banner = document.getElementById('editing-banner');
+  if (banner) banner.style.display = 'none';
   setWorkerFixed();   // 저장 후에도 로그인 사원명 유지
   calcProduction();
 }
@@ -1087,7 +1109,6 @@ function applyFilter() {
 }
 
 function renderRecords(rows) {
-  checkedRows = {};
   const list = document.getElementById('rec-list');
   if (!rows.length) {
     list.innerHTML = '<div class="empty-msg">조회된 실적이 없습니다.</div>';
@@ -1114,12 +1135,19 @@ function renderRecords(rows) {
       : '<span class="shift-badge shift-day">주간</span>';
     const issueBadge = r.issueNote
       ? `<span class="issue-badge">${r.issueNote.slice(0,20)}${r.issueNote.length>20?'…':''}</span>` : '';
+    const ADMIN_LIST = ['은미', '관곤'];
+    const isAdmin = currentWorker && ADMIN_LIST.includes(currentWorker.name);
+    const isOwner = currentWorker && String(r.worker||'').trim() === currentWorker.name;
+    const canEdit = isAdmin || isOwner;
+    const editBtn = canEdit
+      ? `<button class="rec-edit-btn" onclick="event.stopPropagation();handleEdit(${r.rowIndex})">✏️ 수정</button>`
+      : '';
     return `
     <div class="rec-card" id="rec-${r.rowIndex}">
       <div class="rec-head">
-        <div class="rec-check" id="chk-${r.rowIndex}" onclick="toggleCheck(${r.rowIndex})"></div>
         <div class="rec-machine">${r.equipment||'?'} · ${r.worker||'?'}</div>
         <div style="display:flex;align-items:center;gap:5px;">
+          ${editBtn}
           ${shiftBadge}
           <div class="rec-time">${dateStr}</div>
         </div>
@@ -1135,45 +1163,6 @@ function renderRecords(rows) {
       </div>
     </div>`;
   }).join('');
-}
-
-// ──────────────────────────────────────
-// 체크박스 토글 (삭제 선택)
-// ──────────────────────────────────────
-function toggleCheck(rowIndex) {
-  checkedRows[rowIndex] = !checkedRows[rowIndex];
-  const chk  = document.getElementById('chk-' + rowIndex);
-  const card = document.getElementById('rec-' + rowIndex);
-  if (checkedRows[rowIndex]) {
-    chk.classList.add('checked'); card.classList.add('selected');
-  } else {
-    chk.classList.remove('checked'); card.classList.remove('selected');
-  }
-  document.getElementById('del-hint').classList.remove('show');
-}
-
-// ──────────────────────────────────────
-// 삭제
-// ──────────────────────────────────────
-async function handleDelete() {
-  const indices = Object.keys(checkedRows).filter(k => checkedRows[k]).map(Number);
-  if (!indices.length) { document.getElementById('del-hint').classList.add('show'); return; }
-  if (!confirm(indices.length + '건을 삭제하시겠습니까?')) return;
-
-  setLoading(true);
-  try {
-    const res = await gasPost({ action: 'deleteRecord', rowIndices: indices });
-    if (res.success) {
-      showToast('🗑️ ' + res.message, 'ok');
-      await loadRecords();
-    } else {
-      showToast('삭제 실패: ' + res.message, 'err');
-    }
-  } catch(e) {
-    showToast('서버 오류가 발생했습니다.', 'err');
-  } finally {
-    setLoading(false);
-  }
 }
 
 // ──────────────────────────────────────
@@ -1193,10 +1182,103 @@ function showTab(name, el) {
 function renderBtns() {
   const row = document.getElementById('btn-row');
   if (currentTab === 'input') {
-    row.innerHTML = '<button class="btn-main" onclick="handleSave()">💾 저장</button>';
+    if (editingRowIndex !== null) {
+      row.innerHTML = '<button class="btn-main" onclick="handleSave()" style="background:#ba7517;">📝 수정 저장</button>'
+                    + '<button class="btn-cancel" onclick="cancelEdit()">취소</button>';
+    } else {
+      row.innerHTML = '<button class="btn-main" onclick="handleSave()">💾 저장</button>';
+    }
   } else {
     row.innerHTML = ''; // 대시보드/통계 탭에서는 버튼 없음
   }
+}
+
+// ──────────────────────────────────────
+// 수정 모드: 대시보드에서 수정 버튼 클릭
+// ──────────────────────────────────────
+function handleEdit(rowIndex) {
+  const record = allRecords.find(r => r.rowIndex === rowIndex);
+  if (!record) { showToast('기록을 찾을 수 없습니다.', 'err'); return; }
+
+  // 로그인 작업자 본인 또는 관리자 확인
+  const ADMIN_LIST = ['은미', '관곤'];
+  const isAdmin = currentWorker && ADMIN_LIST.includes(currentWorker.name);
+  const isOwner = currentWorker && String(record.worker||'').trim() === currentWorker.name;
+  if (!isAdmin && !isOwner) {
+    showToast('본인의 기록만 수정할 수 있습니다.', 'err');
+    return;
+  }
+
+  editingRowIndex = rowIndex;
+
+  // 입력 탭으로 전환
+  showTab('input', document.getElementById('tab-input'));
+
+  // 수정 중 배너 표시
+  const banner = document.getElementById('editing-banner');
+  if (banner) banner.style.display = 'block';
+
+  // 폼에 데이터 채우기
+  document.getElementById('inp-workdate').value = toDateStr(record.workDate) || '';
+
+  // 작업조
+  const isNight = record.shift === '야간';
+  document.getElementById('shift-day').classList.toggle('on', !isNight);
+  document.getElementById('shift-night').classList.toggle('on', isNight);
+
+  // 작업구분
+  const workTypeRow = document.querySelectorAll('#page-input .sel-row')[1];
+  if (workTypeRow) {
+    const btns = workTypeRow.querySelectorAll('.sel-btn');
+    btns.forEach(b => {
+      b.classList.toggle('on', b.textContent.trim() === (record.workType || '자동'));
+    });
+  }
+
+  // 제품 정보 (캐스케이드 드롭다운 순서대로 설정)
+  setSelectValue('sel-client', record.client || '');
+  filterMaster();
+  setSelectValue('sel-model', record.model || '');
+  filterMaster();
+  setSelectValue('sel-part', record.part || '');
+  filterMaster();
+  setSelectValue('sel-material', record.material || '');
+  setSelectValue('sel-color', record.color || '');
+
+  // 설비
+  setSelectValue('sel-equipment', record.equipment || '');
+
+  // 수량
+  document.getElementById('qty-good').value = record.qtyGood || '';
+  document.getElementById('defect-type-1').value = record.defect1 || record['불량1'] || '';
+  document.getElementById('defect-qty-1').value  = record.defectQty1 || record['수량1'] || '';
+  document.getElementById('defect-type-2').value = record.defect2 || record['불량2'] || '';
+  document.getElementById('defect-qty-2').value  = record.defectQty2 || record['수량2'] || '';
+  document.getElementById('qty-extra').value = record.qtyExtra || '';
+
+  // 이슈
+  document.getElementById('inp-issue').value = record.issueNote || '';
+
+  calcProduction();
+  renderBtns();
+  showToast('✏️ 수정 모드 — 내용을 변경 후 저장하세요', 'ok');
+}
+
+function setSelectValue(id, val) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  for (let i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === val) { sel.selectedIndex = i; return; }
+  }
+}
+
+function cancelEdit() {
+  editingRowIndex = null;
+  const banner = document.getElementById('editing-banner');
+  if (banner) banner.style.display = 'none';
+  resetInputForm();
+  renderBtns();
+  showToast('수정이 취소되었습니다.', '');
 }
 
 // ──────────────────────────────────────
