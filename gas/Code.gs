@@ -1,17 +1,21 @@
 // =====================================================
 // (주)삼인 생산실적관리 앱 - Google Apps Script 최종
 // 스프레드시트 ID: 1vl2AkjwgN3CxZb8_Hr_-n4qU1N2C1AgzjsM09ppPWD4
-// 버전: v1.2.0 (2026-10-29) — 변경 내용은 저장소의 CHANGELOG.md 참고
+// 버전: v1.3.0 (2026-10-29) — 변경 내용은 저장소의 CHANGELOG.md 참고
 // ★ 생산실적 시트 1행 헤더에 맞춰 동적 저장
 // ★ 불량1/수량1/불량2/수량2 반환 포함
 // ★ 저장일시/작업일자 Date 객체 → 한국시간 문자열 변환
 // ★ 불량율 소수점 1자리 정규화
-// ★ v1.1.0: 불량기록 시트(사진·조치상태) 추가 — 8~11번 함수
-// ★ v1.2.0: 로그인을 사원 시트로 확인 — 12번 setupStaffSheet 한 번 실행
+// ★ v1.3.0: 불량 사진·조치상태를 생산실적 시트 끝 열에 저장 (별도 불량 시트 사용 안 함)
+// ★ v1.3.0: 사원 시트가 없으면 자동으로 만듦 (비밀번호는 시트에서만 관리)
 // =====================================================
 
-const GAS_VERSION    = 'v1.2.0';
+const GAS_VERSION    = 'v1.3.0';
 const SPREADSHEET_ID = '1vl2AkjwgN3CxZb8_Hr_-n4qU1N2C1AgzjsM09ppPWD4';
+
+// 생산실적 시트 끝에 자동으로 추가되는 열 (불량 사진·조치 관리용)
+const RECORD_EXTRA_COLS = ['사진','조치상태','조치내용','조치자','조치일시'];
+const PHOTO_FOLDER = '삼인_불량사진';
 
 // ── JSONP 지원 응답 생성 ──────────────────────────────
 function makeResponse(data, callback) {
@@ -36,7 +40,6 @@ function doGet(e) {
     if (action === 'getWorkers') return makeResponse(getWorkersData(), callback);
     if (action === 'getRecords') return makeResponse(getRecords(e.parameter), callback);
     if (action === 'getHeaders') return makeResponse(getSheetHeaders(e.parameter.sheet), callback);
-    if (action === 'getDefects') return makeResponse(getDefects(), callback);
     if (action === 'getVersion') return makeResponse({ success: true, version: GAS_VERSION }, callback);
     return makeResponse({ success: false, message: '알 수 없는 요청입니다.' }, callback);
   } catch (err) {
@@ -51,9 +54,7 @@ function doPost(e) {
     const action = data.action;
     if (action === 'saveRecord')   return makeResponse(saveRecord(data));
     if (action === 'deleteRecord') return makeResponse(deleteRecord(data));
-    if (action === 'saveDefect')   return makeResponse(saveDefect(data));
-    if (action === 'updateDefect') return makeResponse(updateDefect(data));
-    if (action === 'deleteDefect') return makeResponse(deleteDefect(data));
+    if (action === 'updateAction') return makeResponse(updateAction(data));
     return makeResponse({ success: false, message: '알 수 없는 요청입니다.' });
   } catch (err) {
     return makeResponse({ success: false, message: err.message });
@@ -80,16 +81,14 @@ function getSheetHeaders(sheetName) {
   if (!sheet) {
     sheet = ss.insertSheet(sheetName);
     sheet.appendRow(defaultHeaders);
-    return { success: true, headers: defaultHeaders, created: true };
-  }
-
-  const lastCol = sheet.getLastColumn();
-  if (lastCol === 0) {
+  } else if (sheet.getLastColumn() === 0) {
     sheet.appendRow(defaultHeaders);
-    return { success: true, headers: defaultHeaders, created: true };
   }
 
-  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+  // 생산실적 시트는 사진·조치 열이 없으면 끝에 추가
+  if (sheetName === '생산실적') ensureRecordExtraCols(sheet);
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
                        .map(h => String(h).trim())
                        .filter(h => h !== '');
   return { success: true, headers: headers };
@@ -103,15 +102,14 @@ function login(params) {
   const pw   = params.pw;
   if (!name || !pw) return { success: false, message: '사원명과 비밀번호를 입력하세요.' };
 
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName('사원');
-  if (!sheet) return { success: false, message: '사원 시트를 찾을 수 없습니다.' };
+  const staff = getStaffSheet();
+  if (staff.created) return { success: false, message: '사원 시트를 새로 만들었습니다. 관리자가 비밀번호를 입력한 뒤 로그인하세요.' };
 
-  const data = sheet.getDataRange().getValues();
+  const data = staff.sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
     const rowName = String(data[i][1]).trim();
     const rowPw   = String(data[i][2]).trim();
-    if (rowName === name.trim() && rowPw === pw.trim()) {
+    if (rowPw && rowName === name.trim() && rowPw === pw.trim()) {
       return {
         success: true,
         worker: {
@@ -153,21 +151,18 @@ function getMasterData() {
 // 4. 사원 시트 → 작업자 목록
 // =====================================================
 function getWorkersData() {
-  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const sheet = ss.getSheetByName('사원');
-  if (!sheet) return { success: false, message: '사원 시트를 찾을 수 없습니다.' };
-
-  const data = sheet.getDataRange().getValues();
+  const staff = getStaffSheet();
+  const data = staff.sheet.getDataRange().getValues();
   const list = [];
   for (let i = 1; i < data.length; i++) {
     const name = String(data[i][1]).trim();
     if (name) list.push(name);
   }
-  return { success: true, data: list };
+  return { success: true, data: list, created: staff.created };
 }
 
 // =====================================================
-// 5. 생산실적 저장 (헤더 기반 동적 저장)
+// 5. 생산실적 저장 (헤더 기반 동적 저장 + 불량 사진)
 // =====================================================
 function saveRecord(data) {
   const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
@@ -183,11 +178,23 @@ function saveRecord(data) {
       '별도수량','총생산수량','양품율(%)','불량율(%)',
       '별도구분 ISSUE'
     ]);
+    ensureRecordExtraCols(sheet);
   }
 
   // rowData 배열 있으면 헤더 기반 동적 저장
   if (data.rowData && Array.isArray(data.rowData)) {
-    sheet.appendRow(data.rowData);
+    const row = data.rowData.slice();
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
+    const pIdx = headers.indexOf('사진');
+    if (pIdx >= 0) {
+      // 수정 저장 시 기존 사진 유지 + 새 사진 추가
+      const keep  = Array.isArray(data.keepPhotos) ? data.keepPhotos.map(photoLink) : [];
+      const added = savePhotos(data.photos, data.photoName || '');
+      const links = keep.concat(added);
+      while (row.length <= pIdx) row.push('');
+      if (links.length) row[pIdx] = links.join('\n');
+    }
+    sheet.appendRow(row);
     return { success: true, message: '저장되었습니다.' };
   }
 
@@ -258,6 +265,11 @@ function getRecords(params) {
       badRate:    parseFloat((parseFloat(r[idx('불량율(%)')] || r[idx('불량율')] || 0)).toFixed(1)),
       issueNote:  r[idx('별도구분 ISSUE')] || r[idx('별도구분ISSUE')] ||
                   r[idx('주요 품질 ISSUE')] || r[idx('품질이슈')] || '',
+      photos:     photoIds(idx('사진') >= 0 ? r[idx('사진')] : ''),
+      status:     idx('조치상태') >= 0 ? String(r[idx('조치상태')] || '') : '',
+      actionNote: idx('조치내용') >= 0 ? String(r[idx('조치내용')] || '') : '',
+      actor:      idx('조치자')   >= 0 ? String(r[idx('조치자')]   || '') : '',
+      actedAt:    idx('조치일시') >= 0 ? fmtDate(r[idx('조치일시')], 'yyyy-MM-dd HH:mm') : '',
     });
   }
   rows.reverse();
@@ -280,27 +292,47 @@ function deleteRecord(data) {
 }
 
 // =====================================================
-// 8. 불량기록 시트 준비
-//    (시트가 없으면 만들고, 사진은 드라이브 '삼인_불량사진' 폴더에 저장)
+// 8. 불량 조치상태 저장 (생산실적 시트의 조치상태·조치내용·조치자·조치일시 열)
+//    행 번호가 바뀌었을 수 있어 저장일시로 한 번 더 확인
 // =====================================================
-const DEFECT_SHEET   = '불량기록';
-const DEFECT_HEADERS = [
-  'ID','저장일시','발생일자','작업조','설비번호',
-  '고객사','모델명','부품명',
-  '불량유형','불량수량','작업자','불량내용','사진',
-  '조치상태','조치내용','조치자','조치일시'
-];
-const PHOTO_FOLDER = '삼인_불량사진';
+function updateAction(data) {
+  const ss    = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName('생산실적');
+  if (!sheet) return { success: false, message: '생산실적 시트를 찾을 수 없습니다.' };
+  ensureRecordExtraCols(sheet);
 
-function getDefectSheet() {
-  const ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
-  let sheet = ss.getSheetByName(DEFECT_SHEET);
-  if (!sheet) {
-    sheet = ss.insertSheet(DEFECT_SHEET);
-    sheet.appendRow(DEFECT_HEADERS);
-    sheet.setFrozenRows(1);
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
+  const col = name => headers.indexOf(name) + 1;
+  const savedCol = col('저장일시');
+  const savedAtOf = r => fmtDate(sheet.getRange(r, savedCol).getValue(), 'yyyy-MM-dd HH:mm:ss');
+
+  let row = parseInt(data.rowIndex, 10);
+  if (!(row >= 2 && row <= sheet.getLastRow() && savedAtOf(row) === String(data.savedAt))) {
+    row = -1;
+    const vals = sheet.getRange(2, savedCol, Math.max(sheet.getLastRow() - 1, 1), 1).getValues();
+    for (let i = 0; i < vals.length; i++) {
+      if (fmtDate(vals[i][0], 'yyyy-MM-dd HH:mm:ss') === String(data.savedAt)) { row = i + 2; break; }
+    }
   }
-  return sheet;
+  if (row < 0) return { success: false, message: '기록을 찾을 수 없습니다.' };
+
+  sheet.getRange(row, col('조치상태')).setValue(data.status || '미조치');
+  sheet.getRange(row, col('조치내용')).setValue(data.actionNote || '');
+  sheet.getRange(row, col('조치자')).setValue(data.actor || '');
+  sheet.getRange(row, col('조치일시')).setValue(Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'));
+  return { success: true, message: '조치 내용이 저장되었습니다.' };
+}
+
+// =====================================================
+// 9. 공통 도우미 (열 추가, 사진 저장, 날짜 변환)
+// =====================================================
+function ensureRecordExtraCols(sheet) {
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim());
+  let next = headers.filter(h => h !== '').length ? lastCol + 1 : 1;
+  RECORD_EXTRA_COLS.forEach(name => {
+    if (headers.indexOf(name) < 0) sheet.getRange(1, next++).setValue(name);
+  });
 }
 
 function getPhotoFolder() {
@@ -314,166 +346,51 @@ function getPhotoFolder() {
   return folder;
 }
 
-// 헤더명 → 열 번호(1부터) 맵
-function defectColMap(sheet) {
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
-  const map = {};
-  headers.forEach((h, i) => { if (h) map[h] = i + 1; });
-  return map;
+// base64 사진(최대 3장)을 드라이브에 저장하고 링크 목록을 돌려줌
+function savePhotos(photos, baseName) {
+  if (!Array.isArray(photos) || !photos.length) return [];
+  const folder = getPhotoFolder();
+  const stamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyyMMdd_HHmmss');
+  return photos.slice(0, 3).map((p, i) => {
+    const bytes = Utilities.base64Decode(String(p.base64 || ''));
+    const file  = folder.createFile(Utilities.newBlob(bytes, p.mimeType || 'image/jpeg', `${stamp}_${baseName}_${i + 1}.jpg`));
+    try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { /* 회사 정책으로 막힌 경우 무시 */ }
+    return photoLink(file.getId());
+  });
 }
 
-// ID로 행 번호 찾기 (없으면 -1)
-function findDefectRow(sheet, id) {
-  const col  = defectColMap(sheet)['ID'];
-  const last = sheet.getLastRow();
-  if (!col || last < 2) return -1;
-  const ids = sheet.getRange(2, col, last - 1, 1).getValues();
-  for (let i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]) === String(id)) return i + 2;
-  }
-  return -1;
-}
-
-function fmtDate(v, pattern) {
-  return v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', pattern) : String(v || '');
-}
+function photoLink(id) { return 'https://drive.google.com/file/d/' + id + '/view'; }
 
 // 사진 칸의 드라이브 링크에서 파일 ID만 추출
 function photoIds(cell) {
   return (String(cell || '').match(/[-\w]{25,}/g) || []);
 }
 
-// =====================================================
-// 9. 불량기록 조회 (최신순)
-// =====================================================
-function getDefects() {
-  const sheet = getDefectSheet();
-  const raw = sheet.getDataRange().getValues();
-  if (raw.length < 2) return { success: true, version: GAS_VERSION, data: [] };
-
-  const headers = raw[0].map(h => String(h).trim());
-  const idx = (name) => headers.indexOf(name);
-  const val = (r, name) => idx(name) >= 0 ? r[idx(name)] : '';
-
-  const rows = [];
-  for (let i = 1; i < raw.length; i++) {
-    const r = raw[i];
-    if (!val(r, 'ID')) continue;
-    rows.push({
-      id:         String(val(r, 'ID')),
-      savedAt:    fmtDate(val(r, '저장일시'), 'yyyy-MM-dd HH:mm:ss'),
-      date:       fmtDate(val(r, '발생일자'), 'yyyy-MM-dd'),
-      shift:      String(val(r, '작업조') || ''),
-      equipment:  String(val(r, '설비번호') || ''),
-      client:     String(val(r, '고객사') || ''),
-      model:      String(val(r, '모델명') || ''),
-      part:       String(val(r, '부품명') || ''),
-      type:       String(val(r, '불량유형') || ''),
-      qty:        parseInt(val(r, '불량수량')) || 0,
-      worker:     String(val(r, '작업자') || ''),
-      note:       String(val(r, '불량내용') || ''),
-      photos:     photoIds(val(r, '사진')),
-      status:     String(val(r, '조치상태') || '미조치'),
-      actionNote: String(val(r, '조치내용') || ''),
-      actor:      String(val(r, '조치자') || ''),
-      actedAt:    fmtDate(val(r, '조치일시'), 'yyyy-MM-dd HH:mm'),
-    });
-  }
-  rows.reverse();
-  return { success: true, version: GAS_VERSION, data: rows };
+function fmtDate(v, pattern) {
+  return v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', pattern) : String(v || '');
 }
 
 // =====================================================
-// 10. 불량기록 저장 (사진은 base64로 받아 드라이브에 저장)
-//     앱이 만든 ID로 저장 → 같은 ID가 이미 있으면 다시 저장하지 않음
-// =====================================================
-function saveDefect(data) {
-  const d = data.defect || {};
-  if (!data.id) return { success: false, message: 'ID가 없습니다.' };
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-  try {
-    const sheet = getDefectSheet();
-    if (findDefectRow(sheet, data.id) > 0) return { success: true, message: '이미 저장된 기록입니다.' };
-
-    // 사진 저장
-    const links = [];
-    const photos = Array.isArray(data.photos) ? data.photos.slice(0, 3) : [];
-    if (photos.length) {
-      const folder = getPhotoFolder();
-      photos.forEach((p, i) => {
-        const bytes = Utilities.base64Decode(String(p.base64 || ''));
-        const name  = `${d.date || ''}_${d.equipment || ''}_${d.type || ''}_${data.id}_${i + 1}.jpg`;
-        const file  = folder.createFile(Utilities.newBlob(bytes, p.mimeType || 'image/jpeg', name));
-        try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { /* 회사 정책으로 막힌 경우 무시 */ }
-        links.push('https://drive.google.com/file/d/' + file.getId() + '/view');
-      });
-    }
-
-    const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
-    const valueMap = {
-      'ID': data.id, '저장일시': now, '발생일자': d.date || '', '작업조': d.shift || '',
-      '설비번호': d.equipment || '', '고객사': d.client || '', '모델명': d.model || '', '부품명': d.part || '',
-      '불량유형': d.type || '', '불량수량': parseInt(d.qty) || 0, '작업자': d.worker || '',
-      '불량내용': d.note || '', '사진': links.join('\n'),
-      '조치상태': '미조치', '조치내용': '', '조치자': '', '조치일시': '',
-    };
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
-    sheet.appendRow(headers.map(h => valueMap[h] !== undefined ? valueMap[h] : ''));
-    return { success: true, message: '저장되었습니다.' };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// =====================================================
-// 11. 불량기록 조치상태 변경 / 삭제
-// =====================================================
-function updateDefect(data) {
-  const sheet = getDefectSheet();
-  const row = findDefectRow(sheet, data.id);
-  if (row < 0) return { success: false, message: '기록을 찾을 수 없습니다.' };
-  const col = defectColMap(sheet);
-  const set = (name, v) => { if (col[name]) sheet.getRange(row, col[name]).setValue(v); };
-  set('조치상태', data.status || '미조치');
-  set('조치내용', data.actionNote || '');
-  set('조치자',   data.actor || '');
-  set('조치일시', Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'));
-  return { success: true, message: '조치 내용이 저장되었습니다.' };
-}
-
-function deleteDefect(data) {
-  const sheet = getDefectSheet();
-  const row = findDefectRow(sheet, data.id);
-  if (row < 0) return { success: false, message: '기록을 찾을 수 없습니다.' };
-  // 사진은 드라이브 휴지통으로 이동 (30일 안에 복구 가능)
-  const col = defectColMap(sheet);
-  if (col['사진']) {
-    photoIds(sheet.getRange(row, col['사진']).getValue()).forEach(id => {
-      try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { /* 이미 없는 파일 */ }
-    });
-  }
-  sheet.deleteRow(row);
-  return { success: true, message: '삭제되었습니다.' };
-}
-
-// =====================================================
-// 12. 사원 시트 만들기 — Apps Script 편집기에서 한 번만 실행
-//     이름만 채워 두므로, C열(비밀번호)에 새 비밀번호를 직접 입력하세요.
+// 10. 사원 시트 — 없으면 자동으로 만들고 사원명을 채움
+//     비밀번호(C열)는 시트에서 직접 입력하세요.
 //     ※ 비밀번호는 이 코드에 적지 마세요 (코드는 공개 GitHub에 올라갑니다).
 // =====================================================
-function setupStaffSheet() {
+function getStaffSheet() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  if (ss.getSheetByName('사원')) {
-    Logger.log('사원 시트가 이미 있습니다. 시트에서 직접 수정하세요.');
-    return;
-  }
+  let sheet = ss.getSheetByName('사원');
+  if (sheet) return { sheet: sheet, created: false };
+
   const names = ['경희','지민','챠리','객','잔','디','맨','꼭','지원','은미','관곤'];
-  const sheet = ss.insertSheet('사원');
+  sheet = ss.insertSheet('사원');
   sheet.appendRow(['번호','사원명','비밀번호','부서','역할']);
   names.forEach((n, i) => sheet.appendRow([i + 1, n, '', '', '']));
   sheet.getRange('C:C').setNumberFormat('@');   // 0으로 시작하는 비밀번호 유지
   sheet.setFrozenRows(1);
-  Logger.log('사원 시트를 만들었습니다. C열에 비밀번호를 입력하세요.');
+  return { sheet: sheet, created: true };
+}
+
+// 편집기에서 직접 실행해도 됨 (이미 있으면 그대로 둠)
+function setupStaffSheet() {
+  const res = getStaffSheet();
+  Logger.log(res.created ? '사원 시트를 만들었습니다. C열에 비밀번호를 입력하세요.' : '사원 시트가 이미 있습니다.');
 }
