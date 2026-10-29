@@ -646,28 +646,15 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════
-// ★ 사원 목록 & 비밀번호 — 변경 시 이 부분만 수정 ★
-// ══════════════════════════════════════════════════
-const STAFF_LIST = [
-  { name: '경희', pw: '7574' },
-  { name: '지민', pw: '9876' },
-  { name: '챠리', pw: '1234' },
-  { name: '객',   pw: '5954' },
-  { name: '잔',   pw: '3787' },
-  { name: '디',   pw: '2426' },
-  { name: '맨',   pw: '5898' },
-  { name: '꼭',   pw: '2848' },
-  { name: '지원',pw: '1518' },
-  { name: '은미',pw: '9752' },
-  { name: '관곤',pw: '4988' },
-];
+// ★ 사원 목록 & 비밀번호 — 구글 스프레드시트 '사원' 시트에서 관리 ★
+//   (B열 사원명, C열 비밀번호 / 이 파일에는 비밀번호를 적지 않음)
 // ══════════════════════════════════════════════════
 
 // 관리자: 다른 사람의 기록도 수정·삭제 가능
 const ADMIN_LIST = ['은미', '관곤'];
 
 // 앱 버전 — 수정 내용은 CHANGELOG.md 참고
-const APP_VERSION = 'v1.3.0';
+const APP_VERSION = 'v1.3.1';
 
 // ──────────────────────────────────────
 // GAS URL (MASTER·설비 시트 연동용)
@@ -747,7 +734,7 @@ function setLoading(on) {
 // ──────────────────────────────────────
 // 로그인
 // ──────────────────────────────────────
-function doLogin() {
+async function doLogin() {
   const name = document.getElementById('inp-name').value.trim();
   const pw   = document.getElementById('inp-pw').value.trim();
   const errEl= document.getElementById('login-err');
@@ -755,15 +742,27 @@ function doLogin() {
 
   if (!name || !pw) { errEl.textContent = '사원명과 비밀번호를 입력하세요.'; return; }
 
-  const found = STAFF_LIST.find(s => s.name === name && s.pw === pw);
-  if (found) {
-    currentWorker = { name: found.name };
-    document.getElementById('hdr-worker-name').textContent = found.name + ' 님';
+  // 사원 시트에서 확인 (GAS login)
+  let res;
+  setLoading(true);
+  try {
+    res = await gasGet({ action: 'login', name, pw });
+  } catch (e) {
+    errEl.textContent = '서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요.';
+    return;
+  } finally {
+    setLoading(false);
+  }
+
+  if (res && res.success) {
+    currentWorker = { name: res.worker.name };
+    document.getElementById('hdr-worker-name').textContent = res.worker.name + ' 님';
+    document.getElementById('inp-pw').value = '';
     document.getElementById('screen-login').classList.remove('on');
     document.getElementById('screen-main').classList.add('on');
     initApp();
   } else {
-    errEl.textContent = '사원명 또는 비밀번호가 일치하지 않습니다.';
+    errEl.textContent = (res && res.message) || '사원명 또는 비밀번호가 일치하지 않습니다.';
     document.getElementById('inp-pw').value = '';
     document.getElementById('inp-pw').focus();
   }
@@ -826,8 +825,7 @@ async function initApp() {
   setWorkerFixed();
   renderRecPhotos();
 
-  // ── 현황 필터 작업자 목록 ──
-  buildFilterOptions('f-worker', STAFF_LIST.map(s => s.name));
+  // ── 현황 필터 작업자 목록: 기록을 불러오면 refreshWorkerFilter가 채움 ──
 
   // ── MASTER 제품정보: GAS 연동 ──
   setLoading(true);
