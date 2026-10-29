@@ -205,7 +205,7 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
 @keyframes spin{to{transform:rotate(360deg);}}
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   불량기록 탭 (v1.1.0)
+   불량기록 탭
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .d-view{display:none;flex-direction:column;gap:9px;}
 .d-view.on{display:flex;}
@@ -216,6 +216,7 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
 .d-ph-add{width:70px;height:70px;border-radius:8px;border:1.5px dashed #9aa8c0;background:white;color:var(--gray);font-size:10px;cursor:pointer;}
 .d-st{display:inline-block;padding:2px 8px;border-radius:20px;font-size:9px;font-weight:700;}
 .d-st-미조치{background:var(--red-light);color:var(--red);}
+.d-st-생산중단{background:var(--red);color:#fff;}
 .d-st-조치중{background:var(--warn-light);color:#854f0b;}
 .d-st-완료{background:#e1f5ee;color:var(--teal);}
 .rec-head.d-head{background:#7a2323;}
@@ -466,12 +467,6 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
             </div>
 
             <div class="field">
-              <div class="lbl">불량 사진 (최대 3장)</div>
-              <div class="d-photos" id="rec-photos"></div>
-              <input type="file" id="rec-file" accept="image/*" multiple style="display:none" onchange="addRecPhotos(this)">
-            </div>
-
-            <div class="field">
               <div class="lbl">별도 수량</div>
               <input class="inp" id="qty-extra" type="number" placeholder="0 (선택입력)" oninput="calcProduction()">
             </div>
@@ -582,18 +577,73 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
         </div>
       </div><!-- /page-stat -->
 
-      <!-- ── 불량기록 탭 (v1.3.0) : 생산실적 중 불량이 있는 건을 모아 봄 ── -->
+      <!-- ── 불량기록 탭 (v1.4.0) : '불량기록' 시트 — 모바일 입력 + 불량률 5% 이상 생산실적 자동 등록 ── -->
       <div class="page" id="page-defect">
         <div class="sel-row" id="d-subtabs">
-          <button class="sel-btn on" data-v="list" onclick="showDefectView('list')">불량 목록</button>
+          <button class="sel-btn on" data-v="form" onclick="showDefectView('form')">불량 입력</button>
+          <button class="sel-btn" data-v="list" onclick="showDefectView('list')">불량 목록</button>
           <button class="sel-btn" data-v="stat" onclick="showDefectView('stat')">불량 통계</button>
         </div>
         <div class="editing-banner" id="d-gas-warn" style="display:none;">
-          서버(Apps Script) 코드가 아직 v1.3.0으로 업데이트되지 않았습니다.<br>사진·조치상태 저장은 GAS 재배포 후 사용할 수 있습니다.
+          서버(Apps Script) 코드가 아직 v1.4.0으로 업데이트되지 않았습니다.<br>관리자에게 GAS 재배포를 요청하세요.
+        </div>
+
+        <!-- 불량 입력 -->
+        <div id="d-view-form" class="d-view on">
+          <div>
+            <div class="sec-label">발생 정보</div>
+            <div class="card">
+              <div class="row2">
+                <div class="field"><div class="lbl">작업일자</div><input class="inp" type="date" id="d-date"></div>
+                <div class="field"><div class="lbl">작업조</div>
+                  <div class="sel-row" id="d-shift">
+                    <button class="sel-btn on" onclick="toggleSel(this)">주간</button>
+                    <button class="sel-btn" onclick="toggleSel(this)">야간</button>
+                  </div>
+                </div>
+              </div>
+              <div class="row2">
+                <div class="field"><div class="lbl">설비번호</div><select class="sel" id="d-equipment"><option value="">선택</option></select></div>
+                <div class="field"><div class="lbl">작업자</div><select class="sel" id="d-worker" disabled></select></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="sec-label">제품 정보</div>
+            <div class="card">
+              <div class="row2">
+                <div class="field"><div class="lbl">고객사</div><select class="sel" id="d-client" onchange="filterDefectMaster()"><option value="">선택</option></select></div>
+                <div class="field"><div class="lbl">모델명</div><select class="sel" id="d-model" onchange="filterDefectMaster()"><option value="">선택</option></select></div>
+              </div>
+              <div class="field"><div class="lbl">부품명</div><select class="sel" id="d-part"><option value="">선택</option></select></div>
+            </div>
+          </div>
+          <div>
+            <div class="sec-label">불량 내용</div>
+            <div class="card">
+              <div class="row2">
+                <div class="field"><div class="lbl">불량유형</div><select class="sel" id="d-type"><option value="">유형 선택</option></select></div>
+                <div class="field"><div class="lbl">불량수량</div><input class="inp" type="number" id="d-qty" min="1" placeholder="0"></div>
+              </div>
+              <div class="field"><div class="lbl">불량내용 (현상·추정 원인)</div>
+                <textarea class="issue-area" id="d-note" placeholder="예: 게이트 부위 미성형, 사출압 저하 의심"></textarea></div>
+              <div class="field"><div class="lbl">사진 (최대 2장)</div>
+                <div class="d-photos" id="d-photos"></div>
+                <input type="file" id="d-file" accept="image/*" multiple style="display:none" onchange="addDefectPhotos(this)">
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="sec-label">조치 (바로 조치했으면 입력)</div>
+            <div class="card">
+              <div class="sel-row" id="d-status"></div>
+              <textarea class="issue-area" id="d-action" placeholder="예: 생산 중단, 금형 수리 중"></textarea>
+            </div>
+          </div>
         </div>
 
         <!-- 불량 목록 -->
-        <div id="d-view-list" class="d-view on">
+        <div id="d-view-list" class="d-view">
           <div class="filter-bar">
             <div class="filter-row">
               <div class="field"><div class="filter-lbl">시작일</div><input class="filter-sel" type="date" id="dl-from" onchange="renderDefectList()"></div>
@@ -602,10 +652,12 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
             <div class="filter-row">
               <div class="field"><div class="filter-lbl">조치상태</div>
                 <select class="filter-sel" id="dl-status" onchange="renderDefectList()">
-                  <option value="">전체</option><option>미조치</option><option>조치중</option><option>완료</option>
+                  <option value="">전체</option><option>미조치</option><option>생산중단</option><option>조치중</option><option>완료</option>
                 </select></div>
-              <div class="field"><div class="filter-lbl">설비번호</div>
-                <select class="filter-sel" id="dl-equipment" onchange="renderDefectList()"><option value="">전체</option></select></div>
+              <div class="field"><div class="filter-lbl">등록구분</div>
+                <select class="filter-sel" id="dl-source" onchange="renderDefectList()">
+                  <option value="">전체</option><option value="auto">생산실적 자동 (5% 이상)</option><option value="manual">모바일·직접 입력</option>
+                </select></div>
             </div>
             <div class="row2">
               <button class="btn-main" style="padding:7px;font-size:11px;" onclick="loadDefects()">🔄 새로고침</button>
@@ -646,28 +698,15 @@ body{background:#dde1e8;display:flex;align-items:flex-start;justify-content:cent
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 // ══════════════════════════════════════════════════
-// ★ 사원 목록 & 비밀번호 — 변경 시 이 부분만 수정 ★
-// ══════════════════════════════════════════════════
-const STAFF_LIST = [
-  { name: '경희', pw: '7574' },
-  { name: '지민', pw: '9876' },
-  { name: '챠리', pw: '1234' },
-  { name: '객',   pw: '5954' },
-  { name: '잔',   pw: '3787' },
-  { name: '디',   pw: '2426' },
-  { name: '맨',   pw: '5898' },
-  { name: '꼭',   pw: '2848' },
-  { name: '지원',pw: '1518' },
-  { name: '은미',pw: '9752' },
-  { name: '관곤',pw: '4988' },
-];
+// ★ 사원 목록 & 비밀번호 — 구글 스프레드시트 '사원' 시트에서 관리 ★
+//   (1행 제목 '사원명'·'비밀번호' 열 / 이 파일에는 비밀번호를 적지 않음)
 // ══════════════════════════════════════════════════
 
 // 관리자: 다른 사람의 기록도 수정·삭제 가능
 const ADMIN_LIST = ['은미', '관곤'];
 
 // 앱 버전 — 수정 내용은 CHANGELOG.md 참고
-const APP_VERSION = 'v1.3.0';
+const APP_VERSION = 'v1.4.0';
 
 // ──────────────────────────────────────
 // GAS URL (MASTER·설비 시트 연동용)
@@ -747,7 +786,7 @@ function setLoading(on) {
 // ──────────────────────────────────────
 // 로그인
 // ──────────────────────────────────────
-function doLogin() {
+async function doLogin() {
   const name = document.getElementById('inp-name').value.trim();
   const pw   = document.getElementById('inp-pw').value.trim();
   const errEl= document.getElementById('login-err');
@@ -755,15 +794,27 @@ function doLogin() {
 
   if (!name || !pw) { errEl.textContent = '사원명과 비밀번호를 입력하세요.'; return; }
 
-  const found = STAFF_LIST.find(s => s.name === name && s.pw === pw);
-  if (found) {
-    currentWorker = { name: found.name };
-    document.getElementById('hdr-worker-name').textContent = found.name + ' 님';
+  // 사원 시트에서 확인 (GAS login)
+  let res;
+  setLoading(true);
+  try {
+    res = await gasGet({ action: 'login', name, pw });
+  } catch (e) {
+    errEl.textContent = '서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요.';
+    return;
+  } finally {
+    setLoading(false);
+  }
+
+  if (res && res.success) {
+    currentWorker = { name: res.worker.name };
+    document.getElementById('hdr-worker-name').textContent = res.worker.name + ' 님';
+    document.getElementById('inp-pw').value = '';
     document.getElementById('screen-login').classList.remove('on');
     document.getElementById('screen-main').classList.add('on');
     initApp();
   } else {
-    errEl.textContent = '사원명 또는 비밀번호가 일치하지 않습니다.';
+    errEl.textContent = (res && res.message) || '사원명 또는 비밀번호가 일치하지 않습니다.';
     document.getElementById('inp-pw').value = '';
     document.getElementById('inp-pw').focus();
   }
@@ -824,10 +875,8 @@ async function initApp() {
 
   // ── 작업자: 로그인한 사원명 자동 고정 ──
   setWorkerFixed();
-  renderRecPhotos();
 
-  // ── 현황 필터 작업자 목록 ──
-  buildFilterOptions('f-worker', STAFF_LIST.map(s => s.name));
+  // ── 현황 필터 작업자 목록: 기록을 불러오면 refreshWorkerFilter가 채움 ──
 
   // ── MASTER 제품정보: GAS 연동 ──
   setLoading(true);
@@ -1004,9 +1053,6 @@ function getInputValueMap() {
   const issueManual = document.getElementById('inp-issue').value || '';
   // issueManual: 사용자 직접 입력값만 (defectSummary 합치지 않음)
 
-  // 조치 열: 수정 저장 시 기존 내용 유지, 새 기록은 불량이 있으면 '미조치'
-  const editing = editingRowIndex !== null ? allRecords.find(r => r.rowIndex === editingRowIndex) : null;
-
   return {
     // ── 헤더명과 1:1 매핑 (시트 1행 헤더명과 정확히 일치) ──
     '저장일시':          savedAt,
@@ -1037,11 +1083,6 @@ function getInputValueMap() {
     '품질이슈':          issueManual,
     '주요 품질 ISSUE':   issueManual,
     '주요품질ISSUE':     issueManual,
-    '조치상태':          editing && editing.status ? editing.status : (bad > 0 ? '미조치' : ''),
-    '조치내용':          editing ? (editing.actionNote || '') : '',
-    '조치자':            editing ? (editing.actor || '') : '',
-    '조치일시':          editing ? (editing.actedAt || '') : '',
-    // '사진' 열은 GAS가 드라이브 저장 후 채움
   };
 }
 
@@ -1081,6 +1122,7 @@ async function handleSave() {
 
     // ③ 저장 요청
     // 수정 모드일 때: 기존 행 삭제 후 새로 저장
+    const editingRecord = editingRowIndex !== null ? allRecords.find(r => r.rowIndex === editingRowIndex) : null;
     if (editingRowIndex !== null) {
       await gasPost({ action: 'deleteRecord', rowIndices: [editingRowIndex] });
     }
@@ -1088,9 +1130,8 @@ async function handleSave() {
     const res = await gasPost({
       action:  'saveRecord',
       rowData: rowData,
-      photos:     newPhotos.map(p => ({ base64: p.base64, mimeType: 'image/jpeg' })),
-      keepPhotos: keepPhotoIds,
-      photoName:  [valueMap['설비번호'], valueMap['부품명']].filter(Boolean).join('_'),
+      // 수정 저장이면 원래 저장일시 → 불량기록 자동 등록 줄을 새로 만들지 않고 고침
+      prevSavedAt: editingRecord ? editingRecord.savedAt : '',
     });
 
     if (res.success) {
@@ -1098,7 +1139,14 @@ async function handleSave() {
       editingRowIndex = null;
       const banner = document.getElementById('editing-banner');
       if (banner) banner.style.display = 'none';
-      showToast(isEdit ? '✅ 수정 완료!' : '✅ 저장 완료!', 'ok');
+      // 불량률 5% 이상이면 서버가 불량기록 시트에도 자동 등록
+      const total = valueMap['총생산수량'] || 0;
+      const rate  = total > 0 ? valueMap['불량수량'] / total * 100 : 0;
+      if (rate >= DEFECT_RATE_LIMIT) {
+        showToast(`✅ 저장 완료 · 불량률 ${rate.toFixed(1)}% → 불량기록에 등록됨`, 'ok');
+      } else {
+        showToast(isEdit ? '✅ 수정 완료!' : '✅ 저장 완료!', 'ok');
+      }
       resetInputForm();
       renderBtns();
       await loadRecords();
@@ -1127,7 +1175,6 @@ function resetInputForm() {
   const banner = document.getElementById('editing-banner');
   if (banner) banner.style.display = 'none';
   setWorkerFixed();   // 저장 후에도 로그인 사원명 유지
-  clearRecPhotos();
   calcProduction();
 }
 
@@ -1279,7 +1326,9 @@ function showTab(name, el) {
 
 function renderBtns() {
   const row = document.getElementById('btn-row');
-  if (currentTab === 'input') {
+  if (currentTab === 'defect' && defectView === 'form') {
+    row.innerHTML = '<button class="btn-main" style="background:var(--red);" onclick="saveDefect()">💾 불량기록 저장</button>';
+  } else if (currentTab === 'input') {
     if (editingRowIndex !== null) {
       row.innerHTML = '<button class="btn-main" onclick="handleSave()" style="background:#ba7517;">📝 수정 저장</button>'
                     + '<button class="btn-cancel" onclick="cancelEdit()">취소</button>';
@@ -1355,11 +1404,6 @@ function handleEdit(rowIndex) {
 
   // 이슈
   document.getElementById('inp-issue').value = record.issueNote || '';
-
-  // 사진: 기존 사진은 유지 목록으로, 새로 고른 사진은 비움
-  keepPhotoIds = (record.photos || []).slice(0, MAX_PHOTOS);
-  newPhotos = [];
-  renderRecPhotos();
 
   calcProduction();
   renderBtns();
@@ -1531,54 +1575,100 @@ function renderStatBars(rows) {
 }
 
 // ══════════════════════════════════════════════════
-// 불량 사진 · 불량기록 탭 (v1.3.0)
-//  - 사진은 실적 입력에서 첨부 → 생산실적 시트 '사진' 열 (드라이브 링크)
-//  - 불량기록 탭: 생산실적 중 불량수량이 있는 건을 모아 조치상태 관리·통계·엑셀
+// 불량기록 탭 (v1.4.0) — '불량기록' 시트
+//  - 불량 입력: 작업자·관리자가 작업 중 불량을 기록 (사진 최대 2장)
+//  - 불량률 5% 이상 생산실적은 저장 시 서버가 자동 등록 → 여기서 사진·조치 보완
+//  - 불량 목록(조치상태·조치내용·사진 추가·엑셀), 불량 통계
 // ══════════════════════════════════════════════════
-const DEFECT_STATUS = ['미조치','조치중','완료'];
-const MAX_PHOTOS = 3;
+const DEFECT_RATE_LIMIT = 5;   // GAS의 DEFECT_RATE_LIMIT와 같게 유지
+const DEFECT_TYPES  = ['수축','미성형','GAS','BURR','치수불량','기름불량','금형긁힘','FLOW마크','흑점/흑줄','기타'];
+const DEFECT_STATUS = ['미조치','생산중단','조치중','완료'];
+const MAX_PHOTOS = 2;
 
-let defectView    = 'list';
+let defectView    = 'form';
 let defectReady   = false;
-let defectRecords = [];   // 불량이 있는 생산실적
-let rangeRecords  = [];   // 불량률 계산용 전체 생산실적
-let newPhotos     = [];   // 실적 입력에서 새로 고른 사진 [{ preview, base64 }]
-let keepPhotoIds  = [];   // 수정 중인 기록의 기존 사진 (드라이브 파일 ID)
-let openDefectRow = null;
+let defectRecords = [];
+let formPhotos    = [];   // 불량 입력 사진 [{ preview, base64 }]
+let addPhotos     = [];   // 목록에서 기존 기록에 추가할 사진
+let openDefectId  = null;
 
 const escHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const localDate = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 const driveThumb = id => 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w400';
 const driveView  = id => 'https://drive.google.com/file/d/' + encodeURIComponent(id) + '/view';
+const isAutoDefect = r => String(r.source).indexOf('생산실적') === 0;
 
-// ── 실적 입력: 사진 첨부 ──
-function renderRecPhotos() {
-  const box = document.getElementById('rec-photos');
-  if (!box) return;
-  const kept = keepPhotoIds.map((id, i) =>
-    `<div class="d-ph"><img src="${driveThumb(id)}" alt="기존 사진 ${i+1}"><button type="button" onclick="removeKeepPhoto(${i})" aria-label="사진 빼기">×</button></div>`);
-  const added = newPhotos.map((p, i) =>
-    `<div class="d-ph"><img src="${p.preview}" alt="새 사진 ${i+1}"><button type="button" onclick="removeNewPhoto(${i})" aria-label="사진 빼기">×</button></div>`);
-  const canAdd = keepPhotoIds.length + newPhotos.length < MAX_PHOTOS;
-  box.innerHTML = kept.join('') + added.join('')
-    + (canAdd ? `<button type="button" class="d-ph-add" onclick="document.getElementById('rec-file').click()">📷<br>사진 추가</button>` : '');
+function initDefectTab() {
+  if (!defectReady) {
+    defectReady = true;
+    const today = localDate();
+    const monthStart = today.slice(0, 8) + '01';
+    document.getElementById('d-date').value = today;
+    ['dl-from', 'ds-from'].forEach(id => document.getElementById(id).value = monthStart);
+    ['dl-to', 'ds-to'].forEach(id => document.getElementById(id).value = today);
+
+    const eq = document.getElementById('d-equipment');
+    EQUIPMENT_LIST.forEach(e => eq.insertAdjacentHTML('beforeend', `<option value="${escHtml(e.name)}">${escHtml(e.name)} / ${escHtml(e.ton)}</option>`));
+    fillSelect('d-type', DEFECT_TYPES);
+    document.getElementById('d-type').options[0].textContent = '유형 선택';
+    fillSelect('d-client', [...new Set(masterData.map(r => r.client))]);
+    document.getElementById('d-status').innerHTML = DEFECT_STATUS
+      .map((s, i) => `<button class="sel-btn ${i === 0 ? 'on' : ''}" onclick="toggleSel(this)">${s}</button>`).join('');
+    renderPhotoPicker('d-photos', formPhotos, 'd-file', 'removeFormPhoto');
+
+    gasGet({ action: 'getVersion' })
+      .then(res => { if (!res.success || res.version < 'v1.4.0') document.getElementById('d-gas-warn').style.display = 'block'; })
+      .catch(() => {});
+  }
+  document.getElementById('d-worker').innerHTML = `<option>${escHtml(currentWorker ? currentWorker.name : '')}</option>`;
+  showDefectView(defectView);
+  loadDefects();
 }
-function removeKeepPhoto(i) { keepPhotoIds.splice(i, 1); renderRecPhotos(); }
-function removeNewPhoto(i)  { newPhotos.splice(i, 1); renderRecPhotos(); }
-function clearRecPhotos()   { newPhotos = []; keepPhotoIds = []; renderRecPhotos(); }
 
-async function addRecPhotos(input) {
-  const files = [...input.files].slice(0, MAX_PHOTOS - keepPhotoIds.length - newPhotos.length);
+function showDefectView(v) {
+  defectView = v;
+  ['form', 'list', 'stat'].forEach(x => document.getElementById('d-view-' + x).classList.toggle('on', x === v));
+  document.querySelectorAll('#d-subtabs .sel-btn').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  renderBtns();
+  if (v === 'list') renderDefectList();
+  if (v === 'stat') renderDefectStat();
+}
+
+function filterDefectMaster() {
+  const client = document.getElementById('d-client').value;
+  const model  = document.getElementById('d-model').value;
+  let rows = masterData;
+  if (client) rows = rows.filter(r => r.client === client);
+  fillSelect('d-model', [...new Set(rows.map(r => r.model))], model);
+  if (model) rows = rows.filter(r => r.model === model);
+  fillSelect('d-part', [...new Set(rows.map(r => r.part))]);
+}
+
+// ── 사진 고르기 (1280px JPEG로 줄여서 base64 보관) ──
+function renderPhotoPicker(boxId, list, fileId, removeFn, max = MAX_PHOTOS) {
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  box.innerHTML = list.map((p, i) =>
+    `<div class="d-ph"><img src="${p.preview}" alt="사진 ${i+1}"><button type="button" onclick="${removeFn}(${i})" aria-label="사진 빼기">×</button></div>`).join('')
+    + (list.length < max ? `<button type="button" class="d-ph-add" onclick="document.getElementById('${fileId}').click()">📷<br>사진 추가</button>` : '');
+}
+function removeFormPhoto(i) { formPhotos.splice(i, 1); renderPhotoPicker('d-photos', formPhotos, 'd-file', 'removeFormPhoto'); }
+
+async function readPhotos(input, list, max) {
+  const files = [...input.files].slice(0, max - list.length);
   input.value = '';
   for (const f of files) {
     try {
       const dataUrl = await shrinkImage(f, 1280, 0.8);
-      newPhotos.push({ preview: dataUrl, base64: dataUrl.split(',')[1] });
+      list.push({ preview: dataUrl, base64: dataUrl.split(',')[1] });
     } catch (e) {
       showToast('사진을 읽지 못했습니다: ' + f.name, 'err');
     }
   }
-  renderRecPhotos();
+}
+async function addDefectPhotos(input) {
+  await readPhotos(input, formPhotos, MAX_PHOTOS);
+  renderPhotoPicker('d-photos', formPhotos, 'd-file', 'removeFormPhoto');
 }
 
 function shrinkImage(file, maxSide, quality) {
@@ -1599,57 +1689,60 @@ function shrinkImage(file, maxSide, quality) {
   });
 }
 
-// ── 불량기록 탭 ──
-function initDefectTab() {
-  if (!defectReady) {
-    defectReady = true;
-    const today = localDate();
-    const monthStart = today.slice(0, 8) + '01';
-    ['dl-from', 'ds-from'].forEach(id => document.getElementById(id).value = monthStart);
-    ['dl-to', 'ds-to'].forEach(id => document.getElementById(id).value = today);
-    const eqF = document.getElementById('dl-equipment');
-    EQUIPMENT_LIST.forEach(e => eqF.insertAdjacentHTML('beforeend', `<option value="${escHtml(e.name)}">${escHtml(e.name)}</option>`));
-    gasGet({ action: 'getVersion' })
-      .then(res => { if (!res.success || res.version < 'v1.3.0') document.getElementById('d-gas-warn').style.display = 'block'; })
-      .catch(() => {});
+// ── 불량 입력 저장 ──
+async function saveDefect() {
+  const v = id => document.getElementById(id).value.trim();
+  const required = [
+    { id: 'd-date', label: '작업일자' }, { id: 'd-equipment', label: '설비번호' },
+    { id: 'd-part', label: '부품명' },   { id: 'd-type', label: '불량유형' }, { id: 'd-qty', label: '불량수량' },
+  ];
+  for (const f of required) {
+    if (!v(f.id)) { showToast(f.label + '을(를) 입력/선택하세요', 'err'); document.getElementById(f.id).focus(); return; }
   }
-  showDefectView(defectView);
-  loadDefects();
+  const qty = parseInt(v('d-qty'), 10);
+  if (!(qty > 0)) { showToast('불량수량은 1 이상이어야 합니다', 'err'); return; }
+
+  const on = sel => { const b = document.querySelector(sel + ' .sel-btn.on'); return b ? b.textContent.trim() : ''; };
+  const id = 'M' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
+  setLoading(true);
+  try {
+    await gasPost({
+      action: 'saveDefect', id,
+      defect: {
+        date: v('d-date'), shift: on('#d-shift') || '주간', equipment: v('d-equipment'),
+        client: v('d-client'), model: v('d-model'), part: v('d-part'),
+        type: v('d-type'), qty, worker: currentWorker ? currentWorker.name : '', note: v('d-note'),
+        status: on('#d-status') || '미조치', action: v('d-action'),
+      },
+      photos: formPhotos.map(p => ({ base64: p.base64, mimeType: 'image/jpeg' })),
+    });
+    // POST 응답은 읽을 수 없으므로 목록을 다시 읽어 저장 여부를 확인
+    await loadDefects();
+    if (defectRecords.some(r => r.id === id)) {
+      showToast('✅ 불량기록 저장 완료!', 'ok');
+      ['d-qty', 'd-note', 'd-action'].forEach(x => document.getElementById(x).value = '');
+      document.getElementById('d-type').selectedIndex = 0;
+      document.querySelectorAll('#d-status .sel-btn').forEach((b, i) => b.classList.toggle('on', i === 0));
+      formPhotos = [];
+      renderPhotoPicker('d-photos', formPhotos, 'd-file', 'removeFormPhoto');
+    } else {
+      showToast('저장을 확인하지 못했습니다. 목록에서 확인해 주세요.', 'err');
+    }
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'err');
+  } finally {
+    setLoading(false);
+  }
 }
 
-function showDefectView(v) {
-  defectView = v;
-  ['list', 'stat'].forEach(x => document.getElementById('d-view-' + x).classList.toggle('on', x === v));
-  document.querySelectorAll('#d-subtabs .sel-btn').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-  if (v === 'list') renderDefectList();
-  if (v === 'stat') renderDefectStat();
-}
-
-// 생산실적 한 행 → 불량 정보
-function toDefect(r) {
-  const types = [];
-  const t1 = String(r.defect1 || '').trim(), q1 = parseInt(r.defectQty1) || 0;
-  const t2 = String(r.defect2 || '').trim(), q2 = parseInt(r.defectQty2) || 0;
-  if (t1 || q1) types.push({ type: t1 || '(유형 미입력)', qty: q1 });
-  if (t2 || q2) types.push({ type: t2 || '(유형 미입력)', qty: q2 });
-  return {
-    rowIndex: r.rowIndex, savedAt: r.savedAt, date: toDateStr(r.workDate), shift: r.shift || '',
-    equipment: String(r.equipment || ''), client: r.client || '', model: r.model || '', part: String(r.part || ''),
-    worker: String(r.worker || ''), qty: parseInt(r.qtyBad) || 0,
-    total: parseInt(r.qtyTotal) || ((parseInt(r.qtyGood) || 0) + (parseInt(r.qtyBad) || 0) + (parseInt(r.qtyExtra) || 0)),
-    types, note: String(r.issueNote || ''), photos: r.photos || [],
-    status: r.status || '미조치', actionNote: r.actionNote || '', actor: r.actor || '', actedAt: r.actedAt || '',
-  };
-}
-
+// ── 조회 ──
 async function loadDefects() {
   try {
-    const res = await gasGet({ action: 'getRecords' });
+    const res = await gasGet({ action: 'getDefects' });
     if (!res.success) throw new Error(res.message || '');
-    rangeRecords  = (res.data || []).map(toDefect);
-    defectRecords = rangeRecords.filter(r => r.qty > 0);
+    defectRecords = res.data || [];
   } catch (e) {
-    showToast('불량기록을 불러오지 못했습니다.', 'err');
+    document.getElementById('d-gas-warn').style.display = 'block';
   }
   if (defectView === 'list') renderDefectList();
   if (defectView === 'stat') renderDefectStat();
@@ -1663,8 +1756,9 @@ function inRange(r, fromId, toId) {
 
 function filteredDefects() {
   const st = document.getElementById('dl-status').value;
-  const eq = document.getElementById('dl-equipment').value;
-  return defectRecords.filter(r => inRange(r, 'dl-from', 'dl-to') && (!st || r.status === st) && (!eq || r.equipment === eq));
+  const src = document.getElementById('dl-source').value;
+  return defectRecords.filter(r => inRange(r, 'dl-from', 'dl-to') && (!st || r.status === st) &&
+    (!src || (src === 'auto') === isAutoDefect(r)));
 }
 
 function renderDefectList() {
@@ -1673,66 +1767,85 @@ function renderDefectList() {
   const total = rows.reduce((a, r) => a + r.qty, 0);
   document.getElementById('dl-sum').textContent = `${rows.length}건 · 불량 ${total.toLocaleString()}개`;
   if (!rows.length) {
-    list.innerHTML = '<div class="empty-msg">조건에 맞는 불량이 없습니다.<br>불량은 [실적 입력]에서 불량유형·수량과 함께 저장하세요.</div>';
+    list.innerHTML = '<div class="empty-msg">조건에 맞는 불량기록이 없습니다.<br>[불량 입력]에서 불량을 등록하세요.</div>';
     return;
   }
   list.innerHTML = rows.map(r => {
-    const open = r.rowIndex === openDefectRow;
-    const rate = r.total > 0 ? (r.qty / r.total * 100).toFixed(1) + '%' : '-';
+    const open = r.id === openDefectId;
+    const photos = r.photos.filter(Boolean);
+    const canDelete = currentWorker && (ADMIN_LIST.includes(currentWorker.name) || (!isAutoDefect(r) && r.worker === currentWorker.name));
     return `
     <div class="rec-card">
-      <div class="rec-head d-head" onclick="toggleDefect(${r.rowIndex})" style="cursor:pointer;">
-        <div class="rec-machine">${escHtml(r.equipment)} · ${escHtml(r.types.map(t => t.type).join(', ') || '불량')}</div>
+      <div class="rec-head d-head" onclick="toggleDefect('${escHtml(r.id)}')" style="cursor:pointer;">
+        <div class="rec-machine">${escHtml(r.equipment)} · ${escHtml(r.type)}</div>
         <span class="d-st d-st-${escHtml(r.status)}">${escHtml(r.status)}</span>
         <div class="rec-time">${escHtml(r.date)} ${escHtml(r.shift)}</div>
       </div>
-      <div class="rec-body" onclick="toggleDefect(${r.rowIndex})" style="cursor:pointer;">
+      <div class="rec-body" onclick="toggleDefect('${escHtml(r.id)}')" style="cursor:pointer;">
         <div class="rec-product">${escHtml([r.client, r.model, r.part].filter(Boolean).join(' / '))}</div>
         <div class="rec-stats">
           <div class="rec-stat"><div class="rec-stat-num" style="color:var(--red);">${r.qty.toLocaleString()}</div><div class="rec-stat-lbl">불량수량</div></div>
-          <div class="rec-stat"><div class="rec-stat-num">${rate}</div><div class="rec-stat-lbl">불량율</div></div>
-          <div class="rec-stat"><div class="rec-stat-num">${r.photos.length}</div><div class="rec-stat-lbl">사진</div></div>
+          <div class="rec-stat"><div class="rec-stat-num">${escHtml(r.worker || '-')}</div><div class="rec-stat-lbl">작업자</div></div>
+          <div class="rec-stat"><div class="rec-stat-num">${photos.length}</div><div class="rec-stat-lbl">사진</div></div>
         </div>
-        <div class="lbl" style="margin-top:4px;">${escHtml(r.types.map(t => `${t.type} ${t.qty}개`).join(' / '))} · ${escHtml(r.worker)}</div>
+        <div class="lbl" style="margin-top:4px;">${escHtml(r.source || '직접 입력')}</div>
         ${r.note ? `<div class="issue-badge">${escHtml(r.note)}</div>` : ''}
+        ${r.action ? `<div class="lbl">조치: ${escHtml(r.action)}${r.actedAt ? ' (' + escHtml(r.actedAt) + ')' : ''}</div>` : ''}
       </div>
       ${open ? `
       <div class="d-detail">
-        ${r.photos.length ? `<div class="d-gal">${r.photos.map(p => `<a href="${driveView(p)}" target="_blank" rel="noopener"><img src="${driveThumb(p)}" alt="불량 사진" loading="lazy"></a>`).join('')}</div>` : ''}
+        ${photos.length ? `<div class="d-gal">${photos.map(p => `<a href="${driveView(p)}" target="_blank" rel="noopener"><img src="${driveThumb(p)}" alt="불량 사진" loading="lazy"></a>`).join('')}</div>` : ''}
+        ${photos.length < MAX_PHOTOS ? `<div class="lbl">사진 추가</div><div class="d-photos" id="dd-photos"></div>
+          <input type="file" id="dd-file" accept="image/*" multiple style="display:none" onchange="addDetailPhotos(this, ${MAX_PHOTOS - photos.length})">` : ''}
         <div class="lbl">조치상태</div>
         <div class="sel-row" id="dd-status">
           ${DEFECT_STATUS.map(s => `<button class="sel-btn ${s === r.status ? 'on' : ''}" onclick="toggleSel(this)">${s}</button>`).join('')}
         </div>
-        <textarea class="issue-area" id="dd-action" placeholder="원인, 재작업·폐기 여부, 재발 방지 대책">${escHtml(r.actionNote)}</textarea>
-        ${r.actor ? `<div class="lbl">최근 조치: ${escHtml(r.actor)} · ${escHtml(r.actedAt)}</div>` : ''}
-        <button class="btn-main" style="padding:7px;font-size:11px;" onclick="saveDefectAction(${r.rowIndex})">조치 저장</button>
+        <textarea class="issue-area" id="dd-action" placeholder="예: 금형 수리 중, 재작업 후 투입">${escHtml(r.action)}</textarea>
+        <div class="row2">
+          <button class="btn-main" style="padding:7px;font-size:11px;" onclick="saveDefectAction('${escHtml(r.id)}')">조치 저장</button>
+          ${canDelete ? `<button class="btn-cancel" style="padding:7px;font-size:11px;background:var(--red);" onclick="deleteDefect('${escHtml(r.id)}', this)">삭제</button>` : '<span></span>'}
+        </div>
       </div>` : ''}
     </div>`;
   }).join('');
+  if (openDefectId) {
+    const r = defectRecords.find(x => x.id === openDefectId);
+    if (r) renderPhotoPicker('dd-photos', addPhotos, 'dd-file', 'removeDetailPhoto', MAX_PHOTOS - r.photos.filter(Boolean).length);
+  }
 }
 
-function toggleDefect(rowIndex) {
-  openDefectRow = openDefectRow === rowIndex ? null : rowIndex;
+function toggleDefect(id) {
+  openDefectId = openDefectId === id ? null : id;
+  addPhotos = [];
   renderDefectList();
 }
+async function addDetailPhotos(input, max) {
+  await readPhotos(input, addPhotos, max);
+  renderPhotoPicker('dd-photos', addPhotos, 'dd-file', 'removeDetailPhoto', max);
+}
+function removeDetailPhoto(i) { addPhotos.splice(i, 1); renderDefectList(); }
 
-async function saveDefectAction(rowIndex) {
-  const r = defectRecords.find(x => x.rowIndex === rowIndex);
-  if (!r) return;
+async function saveDefectAction(id) {
   const on = document.querySelector('#dd-status .sel-btn.on');
   const status = on ? on.textContent.trim() : '미조치';
+  const before = (defectRecords.find(x => x.id === id) || { photos: [] }).photos.filter(Boolean).length;
+  const adding = addPhotos.length;
   setLoading(true);
   try {
     await gasPost({
-      action: 'updateAction', rowIndex, savedAt: r.savedAt, status,
-      actionNote: document.getElementById('dd-action').value.trim(),
-      actor: currentWorker ? currentWorker.name : '',
+      action: 'updateDefect', id, status,
+      action: document.getElementById('dd-action').value.trim(),
+      photos: addPhotos.map(p => ({ base64: p.base64, mimeType: 'image/jpeg' })),
     });
-    // POST 응답은 읽을 수 없으므로 다시 불러와 반영 여부 확인
+    addPhotos = [];
     await loadDefects();
-    const after = defectRecords.find(x => x.savedAt === r.savedAt);
-    if (after && after.status === status) showToast('✅ 조치 내용 저장 완료', 'ok');
-    else showToast('저장을 확인하지 못했습니다. 서버(GAS) 버전을 확인하세요.', 'err');
+    const after = defectRecords.find(x => x.id === id);
+    if (after && after.status === status && after.photos.filter(Boolean).length >= Math.min(MAX_PHOTOS, before + adding)) {
+      showToast('✅ 조치 내용 저장 완료', 'ok');
+    } else {
+      showToast('저장을 확인하지 못했습니다. 다시 시도해 주세요.', 'err');
+    }
   } catch (e) {
     showToast('서버 오류: ' + e.message, 'err');
   } finally {
@@ -1740,21 +1853,41 @@ async function saveDefectAction(rowIndex) {
   }
 }
 
-// ── 엑셀 내보내기 (현재 목록 필터 기준) ──
+async function deleteDefect(id, btn) {
+  // 실수 방지: 한 번 더 눌러야 삭제
+  if (!btn.dataset.armed) {
+    btn.dataset.armed = '1';
+    btn.textContent = '한 번 더 누르면 삭제';
+    setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = '삭제'; } }, 4000);
+    return;
+  }
+  setLoading(true);
+  try {
+    await gasPost({ action: 'deleteDefect', id });
+    openDefectId = null;
+    await loadDefects();
+    showToast('삭제되었습니다.', 'ok');
+  } catch (e) {
+    showToast('서버 오류: ' + e.message, 'err');
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── 엑셀 내보내기 (현재 목록 필터 기준, 시트와 같은 열 순서) ──
 function exportDefects() {
   const rows = filteredDefects();
   if (!rows.length) { showToast('내보낼 기록이 없습니다.', 'err'); return; }
   if (!window.XLSX) { showToast('엑셀 모듈을 불러오지 못했습니다. 인터넷 연결을 확인하세요.', 'err'); return; }
   const data = rows.map(r => ({
-    '작업일자': r.date, '작업조': r.shift, '설비번호': r.equipment, '고객사': r.client, '모델명': r.model, '부품명': r.part,
-    '작업자': r.worker, '불량1': r.types[0] ? r.types[0].type : '', '수량1': r.types[0] ? r.types[0].qty : '',
-    '불량2': r.types[1] ? r.types[1].type : '', '수량2': r.types[1] ? r.types[1].qty : '',
-    '불량수량': r.qty, '총생산수량': r.total, '불량율(%)': r.total > 0 ? +(r.qty / r.total * 100).toFixed(1) : '',
-    '별도구분 ISSUE': r.note, '조치상태': r.status, '조치내용': r.actionNote, '조치자': r.actor, '조치일시': r.actedAt,
-    '사진': r.photos.map(driveView).join('\n'),
+    '설비번호': r.equipment, '작업자': r.worker, '작업일자': r.date, '작업조(주.야간)': r.shift,
+    '고객사': r.client, '모델명': r.model, '부품명': r.part, '불량유형': r.type, '불량수량': r.qty,
+    '조치상태': r.status, '조치내용': r.action, '조치일시': r.actedAt,
+    '사진1': r.photos[0] ? driveView(r.photos[0]) : '', '사진2': r.photos[1] ? driveView(r.photos[1]) : '',
+    '불량내용': r.note, '등록구분': r.source,
   }));
   const ws = XLSX.utils.json_to_sheet(data);
-  ws['!cols'] = Object.keys(data[0]).map(k => ({ wch: ['사진', '별도구분 ISSUE', '조치내용'].includes(k) ? 40 : 11 }));
+  ws['!cols'] = Object.keys(data[0]).map(k => ({ wch: ['사진1', '사진2', '조치내용', '불량내용', '등록구분'].includes(k) ? 30 : 11 }));
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, '불량기록');
   XLSX.writeFile(wb, `삼인_불량기록_${localDate()}.xlsx`);
@@ -1763,27 +1896,21 @@ function exportDefects() {
 // ── 불량 통계 ──
 function renderDefectStat() {
   const body = document.getElementById('ds-body');
-  const all  = rangeRecords.filter(r => inRange(r, 'ds-from', 'ds-to'));
-  const rows = all.filter(r => r.qty > 0);
-  if (!rows.length) { body.innerHTML = '<div class="empty-msg">이 기간에는 불량이 없습니다.</div>'; return; }
+  const rows = defectRecords.filter(r => inRange(r, 'ds-from', 'ds-to'));
+  if (!rows.length) { body.innerHTML = '<div class="empty-msg">이 기간에는 불량기록이 없습니다.</div>'; return; }
 
-  const totalBad  = rows.reduce((a, r) => a + r.qty, 0);
-  const totalProd = all.reduce((a, r) => a + r.total, 0);
-  const rate = totalProd > 0 ? (totalBad / totalProd * 100).toFixed(2) : '-';
+  const total = rows.reduce((a, r) => a + r.qty, 0);
   const pending = rows.filter(r => r.status !== '완료').length;
+  const stopped = rows.filter(r => r.status === '생산중단').length;
   const sumBy = key => {
     const m = {};
     rows.forEach(r => { const k = String(r[key] || '').trim() || '(미입력)'; m[k] = (m[k] || 0) + r.qty; });
     return Object.entries(m).map(([name, val]) => ({ name, val })).sort((a, b) => b.val - a.val);
   };
 
-  // 유형별 파레토: 불량1·불량2 수량 합산, 누적 점유율
-  const typeMap = {};
-  rows.forEach(r => r.types.forEach(t => { if (t.qty) typeMap[t.type] = (typeMap[t.type] || 0) + t.qty; }));
-  const typeTotal = Object.values(typeMap).reduce((a, b) => a + b, 0);
+  // 유형별 파레토: 누적 점유율 함께 표시
   let cum = 0;
-  const pareto = Object.entries(typeMap).map(([name, val]) => ({ name, val })).sort((a, b) => b.val - a.val)
-    .map(t => { cum += t.val; return { ...t, cum: Math.round(cum / typeTotal * 100) }; });
+  const pareto = sumBy('type').map(t => { cum += t.val; return { ...t, cum: Math.round(cum / total * 100) }; });
 
   // 일별 추이 (기간이 길면 최근 60일)
   const from = document.getElementById('ds-from').value || rows[rows.length - 1].date;
@@ -1796,20 +1923,20 @@ function renderDefectStat() {
   const dayMax = Math.max(1, ...days.map(d => perDay[d] || 0));
 
   body.innerHTML = `
-    <div class="d-kpis" style="grid-template-columns:1fr 1fr;">
-      <div class="calc-card bad"><div class="calc-num">${totalBad.toLocaleString()}</div><div class="calc-lbl">불량 수량 (${rows.length}건)</div></div>
-      <div class="calc-card bad"><div class="calc-num">${rate}<span class="calc-unit">%</span></div><div class="calc-lbl">불량율 (총생산 ${totalProd.toLocaleString()})</div></div>
-      <div class="calc-card ${pending ? 'bad' : 'good'}" style="grid-column:1 / -1;"><div class="calc-num">${pending}</div><div class="calc-lbl">조치 미완료 건 (미조치 + 조치중)</div></div>
+    <div class="d-kpis">
+      <div class="calc-card bad"><div class="calc-num">${total.toLocaleString()}</div><div class="calc-lbl">불량수량 (${rows.length}건)</div></div>
+      <div class="calc-card ${pending ? 'bad' : 'good'}"><div class="calc-num">${pending}</div><div class="calc-lbl">조치 미완료</div></div>
+      <div class="calc-card ${stopped ? 'bad' : 'good'}"><div class="calc-num">${stopped}</div><div class="calc-lbl">생산중단</div></div>
     </div>
     <div class="card">
       <div class="stat-card-head" style="color:#c0392b;">유형별 불량 (파레토 · 누적%)</div>
-      ${pareto.length ? pareto.map((t, i) => `
+      ${pareto.map((t, i) => `
         <div class="st-row">
           <div class="st-rank" style="background:${RANK_DEF_COLORS[Math.min(i, 4)]};">${i + 1}</div>
           <div class="st-name">${escHtml(t.name)}</div>
           <div class="st-bar-wrap"><div class="st-bar" style="width:${Math.max(4, Math.round(t.val / pareto[0].val * 100))}%;background:${RANK_DEF_COLORS[Math.min(i, 4)]};"></div></div>
           <div class="st-val" style="color:#333;">${t.val.toLocaleString()}개<br><span style="font-size:9px;color:var(--gray);font-weight:400;">누적 ${t.cum}%</span></div>
-        </div>`).join('') : '<div class="empty-msg">불량유형 입력 데이터 없음</div>'}
+        </div>`).join('')}
     </div>
     <div class="card">
       <div class="stat-card-head" style="color:#c0392b;">일별 불량수량</div>
