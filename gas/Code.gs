@@ -1,15 +1,16 @@
 // =====================================================
 // (주)삼인 생산실적관리 앱 - Google Apps Script 최종
 // 스프레드시트 ID: 1vl2AkjwgN3CxZb8_Hr_-n4qU1N2C1AgzjsM09ppPWD4
-// 버전: v1.1.0 (2026-10-29) — 변경 내용은 저장소의 CHANGELOG.md 참고
+// 버전: v1.2.0 (2026-10-29) — 변경 내용은 저장소의 CHANGELOG.md 참고
 // ★ 생산실적 시트 1행 헤더에 맞춰 동적 저장
 // ★ 불량1/수량1/불량2/수량2 반환 포함
 // ★ 저장일시/작업일자 Date 객체 → 한국시간 문자열 변환
 // ★ 불량율 소수점 1자리 정규화
 // ★ v1.1.0: 불량기록 시트(사진·조치상태) 추가 — 8~11번 함수
+// ★ v1.2.0: 로그인을 사원 시트로 확인 — 12번 setupStaffSheet 한 번 실행
 // =====================================================
 
-const GAS_VERSION    = 'v1.1.0';
+const GAS_VERSION    = 'v1.2.0';
 const SPREADSHEET_ID = '1vl2AkjwgN3CxZb8_Hr_-n4qU1N2C1AgzjsM09ppPWD4';
 
 // ── JSONP 지원 응답 생성 ──────────────────────────────
@@ -455,4 +456,24 @@ function deleteDefect(data) {
   }
   sheet.deleteRow(row);
   return { success: true, message: '삭제되었습니다.' };
+}
+
+// =====================================================
+// 12. 사원 시트 만들기 — Apps Script 편집기에서 한 번만 실행
+//     이름만 채워 두므로, C열(비밀번호)에 새 비밀번호를 직접 입력하세요.
+//     ※ 비밀번호는 이 코드에 적지 마세요 (코드는 공개 GitHub에 올라갑니다).
+// =====================================================
+function setupStaffSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (ss.getSheetByName('사원')) {
+    Logger.log('사원 시트가 이미 있습니다. 시트에서 직접 수정하세요.');
+    return;
+  }
+  const names = ['경희','지민','챠리','객','잔','디','맨','꼭','지원','은미','관곤'];
+  const sheet = ss.insertSheet('사원');
+  sheet.appendRow(['번호','사원명','비밀번호','부서','역할']);
+  names.forEach((n, i) => sheet.appendRow([i + 1, n, '', '', '']));
+  sheet.getRange('C:C').setNumberFormat('@');   // 0으로 시작하는 비밀번호 유지
+  sheet.setFrozenRows(1);
+  Logger.log('사원 시트를 만들었습니다. C열에 비밀번호를 입력하세요.');
 }
