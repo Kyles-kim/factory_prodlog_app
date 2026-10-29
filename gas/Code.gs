@@ -1,13 +1,15 @@
 // =====================================================
 // (주)삼인 생산실적관리 앱 - Google Apps Script 최종
 // 스프레드시트 ID: 1vl2AkjwgN3CxZb8_Hr_-n4qU1N2C1AgzjsM09ppPWD4
-// 업데이트: 2026-05-21
+// 버전: v1.1.0 (2026-10-29) — 변경 내용은 저장소의 CHANGELOG.md 참고
 // ★ 생산실적 시트 1행 헤더에 맞춰 동적 저장
 // ★ 불량1/수량1/불량2/수량2 반환 포함
 // ★ 저장일시/작업일자 Date 객체 → 한국시간 문자열 변환
 // ★ 불량율 소수점 1자리 정규화
+// ★ v1.1.0: 불량기록 시트(사진·조치상태) 추가 — 8~11번 함수
 // =====================================================
 
+const GAS_VERSION    = 'v1.1.0';
 const SPREADSHEET_ID = '1vl2AkjwgN3CxZb8_Hr_-n4qU1N2C1AgzjsM09ppPWD4';
 
 // ── JSONP 지원 응답 생성 ──────────────────────────────
@@ -33,6 +35,8 @@ function doGet(e) {
     if (action === 'getWorkers') return makeResponse(getWorkersData(), callback);
     if (action === 'getRecords') return makeResponse(getRecords(e.parameter), callback);
     if (action === 'getHeaders') return makeResponse(getSheetHeaders(e.parameter.sheet), callback);
+    if (action === 'getDefects') return makeResponse(getDefects(), callback);
+    if (action === 'getVersion') return makeResponse({ success: true, version: GAS_VERSION }, callback);
     return makeResponse({ success: false, message: '알 수 없는 요청입니다.' }, callback);
   } catch (err) {
     return makeResponse({ success: false, message: err.message }, callback);
@@ -46,6 +50,9 @@ function doPost(e) {
     const action = data.action;
     if (action === 'saveRecord')   return makeResponse(saveRecord(data));
     if (action === 'deleteRecord') return makeResponse(deleteRecord(data));
+    if (action === 'saveDefect')   return makeResponse(saveDefect(data));
+    if (action === 'updateDefect') return makeResponse(updateDefect(data));
+    if (action === 'deleteDefect') return makeResponse(deleteDefect(data));
     return makeResponse({ success: false, message: '알 수 없는 요청입니다.' });
   } catch (err) {
     return makeResponse({ success: false, message: err.message });
@@ -269,4 +276,183 @@ function deleteRecord(data) {
     sheet.deleteRow(idx);
   }
   return { success: true, message: `${indices.length}건 삭제 완료` };
+}
+
+// =====================================================
+// 8. 불량기록 시트 준비
+//    (시트가 없으면 만들고, 사진은 드라이브 '삼인_불량사진' 폴더에 저장)
+// =====================================================
+const DEFECT_SHEET   = '불량기록';
+const DEFECT_HEADERS = [
+  'ID','저장일시','발생일자','작업조','설비번호',
+  '고객사','모델명','부품명',
+  '불량유형','불량수량','작업자','불량내용','사진',
+  '조치상태','조치내용','조치자','조치일시'
+];
+const PHOTO_FOLDER = '삼인_불량사진';
+
+function getDefectSheet() {
+  const ss  = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(DEFECT_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(DEFECT_SHEET);
+    sheet.appendRow(DEFECT_HEADERS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getPhotoFolder() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('PHOTO_FOLDER_ID');
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (e) { /* 폴더가 지워졌으면 새로 만듦 */ }
+  }
+  const folder = DriveApp.createFolder(PHOTO_FOLDER);
+  props.setProperty('PHOTO_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+// 헤더명 → 열 번호(1부터) 맵
+function defectColMap(sheet) {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
+  const map = {};
+  headers.forEach((h, i) => { if (h) map[h] = i + 1; });
+  return map;
+}
+
+// ID로 행 번호 찾기 (없으면 -1)
+function findDefectRow(sheet, id) {
+  const col  = defectColMap(sheet)['ID'];
+  const last = sheet.getLastRow();
+  if (!col || last < 2) return -1;
+  const ids = sheet.getRange(2, col, last - 1, 1).getValues();
+  for (let i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === String(id)) return i + 2;
+  }
+  return -1;
+}
+
+function fmtDate(v, pattern) {
+  return v instanceof Date ? Utilities.formatDate(v, 'Asia/Seoul', pattern) : String(v || '');
+}
+
+// 사진 칸의 드라이브 링크에서 파일 ID만 추출
+function photoIds(cell) {
+  return (String(cell || '').match(/[-\w]{25,}/g) || []);
+}
+
+// =====================================================
+// 9. 불량기록 조회 (최신순)
+// =====================================================
+function getDefects() {
+  const sheet = getDefectSheet();
+  const raw = sheet.getDataRange().getValues();
+  if (raw.length < 2) return { success: true, version: GAS_VERSION, data: [] };
+
+  const headers = raw[0].map(h => String(h).trim());
+  const idx = (name) => headers.indexOf(name);
+  const val = (r, name) => idx(name) >= 0 ? r[idx(name)] : '';
+
+  const rows = [];
+  for (let i = 1; i < raw.length; i++) {
+    const r = raw[i];
+    if (!val(r, 'ID')) continue;
+    rows.push({
+      id:         String(val(r, 'ID')),
+      savedAt:    fmtDate(val(r, '저장일시'), 'yyyy-MM-dd HH:mm:ss'),
+      date:       fmtDate(val(r, '발생일자'), 'yyyy-MM-dd'),
+      shift:      String(val(r, '작업조') || ''),
+      equipment:  String(val(r, '설비번호') || ''),
+      client:     String(val(r, '고객사') || ''),
+      model:      String(val(r, '모델명') || ''),
+      part:       String(val(r, '부품명') || ''),
+      type:       String(val(r, '불량유형') || ''),
+      qty:        parseInt(val(r, '불량수량')) || 0,
+      worker:     String(val(r, '작업자') || ''),
+      note:       String(val(r, '불량내용') || ''),
+      photos:     photoIds(val(r, '사진')),
+      status:     String(val(r, '조치상태') || '미조치'),
+      actionNote: String(val(r, '조치내용') || ''),
+      actor:      String(val(r, '조치자') || ''),
+      actedAt:    fmtDate(val(r, '조치일시'), 'yyyy-MM-dd HH:mm'),
+    });
+  }
+  rows.reverse();
+  return { success: true, version: GAS_VERSION, data: rows };
+}
+
+// =====================================================
+// 10. 불량기록 저장 (사진은 base64로 받아 드라이브에 저장)
+//     앱이 만든 ID로 저장 → 같은 ID가 이미 있으면 다시 저장하지 않음
+// =====================================================
+function saveDefect(data) {
+  const d = data.defect || {};
+  if (!data.id) return { success: false, message: 'ID가 없습니다.' };
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sheet = getDefectSheet();
+    if (findDefectRow(sheet, data.id) > 0) return { success: true, message: '이미 저장된 기록입니다.' };
+
+    // 사진 저장
+    const links = [];
+    const photos = Array.isArray(data.photos) ? data.photos.slice(0, 3) : [];
+    if (photos.length) {
+      const folder = getPhotoFolder();
+      photos.forEach((p, i) => {
+        const bytes = Utilities.base64Decode(String(p.base64 || ''));
+        const name  = `${d.date || ''}_${d.equipment || ''}_${d.type || ''}_${data.id}_${i + 1}.jpg`;
+        const file  = folder.createFile(Utilities.newBlob(bytes, p.mimeType || 'image/jpeg', name));
+        try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { /* 회사 정책으로 막힌 경우 무시 */ }
+        links.push('https://drive.google.com/file/d/' + file.getId() + '/view');
+      });
+    }
+
+    const now = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+    const valueMap = {
+      'ID': data.id, '저장일시': now, '발생일자': d.date || '', '작업조': d.shift || '',
+      '설비번호': d.equipment || '', '고객사': d.client || '', '모델명': d.model || '', '부품명': d.part || '',
+      '불량유형': d.type || '', '불량수량': parseInt(d.qty) || 0, '작업자': d.worker || '',
+      '불량내용': d.note || '', '사진': links.join('\n'),
+      '조치상태': '미조치', '조치내용': '', '조치자': '', '조치일시': '',
+    };
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(h => String(h).trim());
+    sheet.appendRow(headers.map(h => valueMap[h] !== undefined ? valueMap[h] : ''));
+    return { success: true, message: '저장되었습니다.' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// =====================================================
+// 11. 불량기록 조치상태 변경 / 삭제
+// =====================================================
+function updateDefect(data) {
+  const sheet = getDefectSheet();
+  const row = findDefectRow(sheet, data.id);
+  if (row < 0) return { success: false, message: '기록을 찾을 수 없습니다.' };
+  const col = defectColMap(sheet);
+  const set = (name, v) => { if (col[name]) sheet.getRange(row, col[name]).setValue(v); };
+  set('조치상태', data.status || '미조치');
+  set('조치내용', data.actionNote || '');
+  set('조치자',   data.actor || '');
+  set('조치일시', Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm'));
+  return { success: true, message: '조치 내용이 저장되었습니다.' };
+}
+
+function deleteDefect(data) {
+  const sheet = getDefectSheet();
+  const row = findDefectRow(sheet, data.id);
+  if (row < 0) return { success: false, message: '기록을 찾을 수 없습니다.' };
+  // 사진은 드라이브 휴지통으로 이동 (30일 안에 복구 가능)
+  const col = defectColMap(sheet);
+  if (col['사진']) {
+    photoIds(sheet.getRange(row, col['사진']).getValue()).forEach(id => {
+      try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { /* 이미 없는 파일 */ }
+    });
+  }
+  sheet.deleteRow(row);
+  return { success: true, message: '삭제되었습니다.' };
 }
